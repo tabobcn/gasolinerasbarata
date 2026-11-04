@@ -6,3 +6,7 @@ next-env.d.ts
 public/maplibre
 
 .vercel
+
+# claves (no subir nunca a GitHub)
+.env
+.env*.local

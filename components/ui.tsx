@@ -17,7 +17,7 @@ export function BrandTile({ brand, size = 40 }: { brand: string; size?: number }
 }
 
 const TABS: { href: string; label: string; icon: IconName; match: (p: string) => boolean }[] = [
-  { href: "/", label: "Cerca", icon: "pump", match: (p) => p === "/" || p.startsWith("/gasolinera") || p === "/carga" },
+  { href: "/", label: "Cerca", icon: "pump", match: (p) => p === "/" || p.startsWith("/gasolinera") || p.startsWith("/carga") },
   { href: "/mapa", label: "Mapa", icon: "map", match: (p) => p.startsWith("/mapa") },
   { href: "/ruta", label: "Ruta", icon: "route", match: (p) => p.startsWith("/ruta") },
   { href: "/favoritas", label: "Favoritas", icon: "star", match: (p) => p.startsWith("/favoritas") },
