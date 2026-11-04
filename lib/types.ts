@@ -18,6 +18,9 @@ export type Station = {
   hours: string; // horario crudo del Ministerio
   prices: Prices;
   dist?: number; // km desde el punto consultado (línea recta)
+  /** Si se aplica un descuento del usuario: precios de surtidor originales y qué descuento */
+  listPrices?: Prices;
+  disc?: { label: string; cts: number };
 };
 
 export type StationsResponse = {

@@ -4,6 +4,7 @@ import { cumulativeKm, distanceToPolyline, expandBBox, haversineKm, lineBBox } f
 import { isFuelKey } from "@/lib/fuels";
 import { CONSUMPTION_L_100KM } from "@/lib/savings";
 import type { RouteResponse, RouteStop } from "@/lib/types";
+import { applyDiscounts, decodeDiscounts } from "@/lib/discounts";
 
 export const maxDuration = 60;
 
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
     const scale = route.distance / 1000 / (cum[cum.length - 1] || 1);
 
     const ds = await stationsInArea(expandBBox(lineBBox(line), CORRIDOR_KM));
-    const corridor = ds.stations
+    const corridor = applyDiscounts(ds.stations, decodeDiscounts(sp.get("d")))
       .map((s) => {
         const { dist, along } = distanceToPolyline(s.lat, s.lon, line, cum);
         return { s, dist, along: along * scale };

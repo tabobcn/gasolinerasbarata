@@ -11,10 +11,15 @@ import { stationsUrl, useJSON } from "@/lib/useJSON";
 import type { Prices, Station, StationsResponse } from "@/lib/types";
 import { fuelByKey, type FuelKey } from "@/lib/fuels";
 import { fmtPrice, signedCents } from "@/lib/format";
+import { useDiscounts } from "@/lib/discountStore";
+import { applyDiscounts, discountFor } from "@/lib/discounts";
 
 function PlaceCard({ p, fuel }: { p: SavedPlace; fuel: FuelKey }) {
   const { data, loading } = useJSON<StationsResponse>(stationsUrl(p.lat, p.lon, 5));
-  const cheapest = data?.stations.filter((s) => s.prices[fuel] != null).sort((a, b) => a.prices[fuel]! - b.prices[fuel]!)[0];
+  const [d] = useDiscounts();
+  const cheapest = applyDiscounts(data?.stations ?? [], d)
+    .filter((s) => s.prices[fuel] != null)
+    .sort((a, b) => a.prices[fuel]! - b.prices[fuel]!)[0];
   const icon = p.kind === "casa" ? "home" : p.kind === "trabajo" ? "briefcase" : "pin";
   return (
     <div className="place-card">
@@ -47,6 +52,7 @@ export function Favorites() {
   const [settings] = useSettings();
   const [favs] = useFavorites();
   const [places] = usePlaces();
+  const [discState] = useDiscounts();
   const fuel = settings.fuel;
   const [adding, setAdding] = useState<null | SavedPlace["kind"]>(null);
   const [kindPick, setKindPick] = useState(false);
@@ -84,6 +90,8 @@ export function Favorites() {
             {favs.map((f) => {
               const it = lookup.data!.items.find((x) => x.station.id === f.id);
               const now = it?.station.prices[fuel];
+              const myDisc = it ? discountFor(it.station.brand, discState) : null;
+              const shown = now != null && myDisc ? now - myDisc.cts / 100 : now;
               const before = it?.yesterday?.[fuel];
               const change = now != null && before != null ? now - before : null;
               const changeTxt =
@@ -98,7 +106,10 @@ export function Favorites() {
                         {now == null ? `No vende ${fuelByKey(fuel)?.label.toLowerCase()}` : changeTxt}
                       </span>
                     </span>
-                    <span className="price-sm">{now != null ? `${fmtPrice(now)} €` : "—"}</span>
+                    <span className="col-0 end">
+                      <span className={`price-sm${myDisc ? " green" : ""}`}>{shown != null ? `${fmtPrice(shown)} €` : "—"}</span>
+                      {myDisc && now != null && <span className="tag disc">{myDisc.label} · antes {fmtPrice(now)}</span>}
+                    </span>
                   </Link>
                   <button
                     type="button"

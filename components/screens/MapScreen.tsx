@@ -18,6 +18,8 @@ import { FUELS, fuelByKey } from "@/lib/fuels";
 import { openStatus } from "@/lib/hours";
 import { brandStyle } from "@/lib/brands";
 import { haversineKm } from "@/lib/geo";
+import { useDiscounts } from "@/lib/discountStore";
+import { activeCount, applyDiscounts } from "@/lib/discounts";
 
 const RADII = [2, 5, 10, 20];
 const FALLBACK = { lat: 40.4168, lon: -3.7038 }; // Puerta del Sol
@@ -61,10 +63,11 @@ export function MapScreen() {
 
   const { data, loading } = useJSON<StationsResponse>(center ? stationsUrl(center.lat, center.lon, settings.radius) : null);
 
+  const [disc, setDisc] = useDiscounts();
   const stations = useMemo(() => {
-    const list = (data?.stations ?? []).filter((s) => s.prices[fuel] != null);
+    const list = applyDiscounts(data?.stations ?? [], disc).filter((s) => s.prices[fuel] != null);
     return openOnly ? list.filter((s) => openStatus(s.hours, s.provId).open !== false) : list;
-  }, [data, fuel, openOnly]);
+  }, [data, fuel, openOnly, disc]);
   const avg = useMemo(() => average(stations, fuel), [stations, fuel]);
   const cheapestId = useMemo(() => [...stations].sort((a, b) => a.prices[fuel]! - b.prices[fuel]!)[0]?.id, [stations, fuel]);
   const selected: Station | undefined = stations.find((s) => s.id === sel) ?? stations.find((s) => s.id === cheapestId);
@@ -242,6 +245,11 @@ export function MapScreen() {
           >
             {settings.radius} km
           </button>
+          {activeCount(disc) > 0 && (
+            <button type="button" className={`chip shadow${disc.enabled ? " on" : ""}`} aria-pressed={disc.enabled} onClick={() => setDisc((s) => ({ ...s, enabled: !s.enabled }))}>
+              Con mis descuentos
+            </button>
+          )}
         </div>
         {farAway && (
           <button type="button" className="btn dark small center-self" onClick={searchHere}>
@@ -275,11 +283,13 @@ export function MapScreen() {
               </span>
             </div>
             <div className="col-2 end">
+              {selected.disc && selected.listPrices?.[fuel] != null && <span className="strike b12">{fmtPrice(selected.listPrices[fuel])} €</span>}
               <span className="price-lg" style={{ color: selLv.color }}>
                 {fmtPrice(selPrice)} €
               </span>
               <span className="b12" style={{ color: selLv.color }}>
                 {selected.id === cheapestId ? "La más barata" : selLv.label}
+                {selected.disc ? ` · con ${selected.disc.label}` : ""}
               </span>
             </div>
           </div>

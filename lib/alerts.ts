@@ -6,6 +6,8 @@ import { fmtKm, fmtPrice } from "./format";
 import { getJSON, stationsUrl } from "./useJSON";
 import { alertsStore, favoritesStore, placesStore, type PriceAlert, type SavedPlace } from "./store";
 import type { Prices, Station, StationsResponse } from "./types";
+import { discountsStore } from "./discountStore";
+import { applyDiscounts } from "./discounts";
 
 export type AlertMatch = {
   key: string;
@@ -34,7 +36,7 @@ export async function evaluateAlert(alert: PriceAlert, places: SavedPlace[], her
   const z = zoneOf(alert, places, here);
   if (!z) return null;
   const data = await getJSON<StationsResponse>(stationsUrl(z.lat, z.lon, alert.radius));
-  const withFuel = data.stations.filter((s) => s.prices[alert.fuel] != null);
+  const withFuel = applyDiscounts(data.stations, discountsStore.get()).filter((s) => s.prices[alert.fuel] != null);
   const cheapest = withFuel.sort((a, b) => a.prices[alert.fuel]! - b.prices[alert.fuel]!)[0] ?? null;
   const price = cheapest?.prices[alert.fuel] ?? null;
   return {

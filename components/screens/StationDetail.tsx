@@ -14,6 +14,10 @@ import { useLocation } from "../LocationProvider";
 import { useNavigate } from "../NavigateProvider";
 import { BrandTile, EmptyState, Skeleton } from "../ui";
 import { Icon } from "../Icon";
+import { useDiscounts } from "@/lib/discountStore";
+import { discountFor, PROGRAMS } from "@/lib/discounts";
+import { activeOffers, fmtDay } from "@/lib/offers";
+import { knownBrand } from "@/lib/brands";
 
 const WEEKDAYS = ["domingos", "lunes", "martes", "miércoles", "jueves", "viernes", "sábados"];
 
@@ -26,6 +30,10 @@ export function StationDetail({ id, m }: { id: string; m: string | null }) {
   const fuel = settings.fuel;
   const { data, error, loading, reload } = useJSON<StationDetailResponse>(m ? `/api/stations/${id}?m=${m}` : null);
   const st = data?.station;
+  const [discState] = useDiscounts();
+  const myDisc = st ? discountFor(st.brand, discState) : null;
+  const brandK = st ? knownBrand(st.brand) : null;
+  const offers = brandK ? activeOffers().filter((o) => PROGRAMS.find((p) => p.id === o.program)?.brands.includes(brandK)) : [];
   const histFuel = st && st.prices[fuel] == null ? (FUELS.find((f) => st.prices[f.key] != null)?.key ?? fuel) : fuel;
   const hist = useJSON<HistoryResponse>(st ? `/api/stations/${id}/history?m=${st.munId}&fuel=${histFuel}&days=14` : null);
 
@@ -143,12 +151,36 @@ export function StationDetail({ id, m }: { id: string; m: string | null }) {
                         {change}
                       </span>
                     )}
-                    <span className="price-md">{fmtPrice(p)} €</span>
+                    {myDisc ? (
+                      <span className="col-0 end price-md">
+                        <span className="strike b12">{fmtPrice(p)} €</span>
+                        <span className="green">{fmtPrice(p - myDisc.cts / 100)} €</span>
+                      </span>
+                    ) : (
+                      <span className="price-md">{fmtPrice(p)} €</span>
+                    )}
                   </div>
                 );
               })}
               {FUELS.every((f) => st.prices[f.key] == null) && <p className="muted sm pad">Esta estación no publica precios de los combustibles habituales.</p>}
             </div>
+
+            {myDisc && (
+              <Link href="/descuentos" className="note amber link">
+                <Icon name="card" size={18} />
+                <span className="grow">
+                  Precios con tu {myDisc.label}: −{myDisc.cts} cts/l. El de surtidor aparece tachado.
+                </span>
+              </Link>
+            )}
+            {offers.map((o) => (
+              <a key={o.id} href={o.url} target="_blank" rel="noopener" className="note amber link">
+                <Icon name="info" size={18} />
+                <span className="grow">
+                  <strong>Oferta:</strong> {o.title} · hasta el {fmtDay(o.until)}
+                </span>
+              </a>
+            ))}
 
             <div className="card stack-12">
               <div className="row-between baseline">

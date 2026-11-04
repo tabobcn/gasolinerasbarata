@@ -37,6 +37,19 @@ const KNOWN: Record<string, BrandStyle & { name?: string }> = {
   NATURGY: { mark: "N", bg: "#004571", fg: "#F7A600", name: "Naturgy" },
 };
 
+/** Marcas conocidas (sin repetir nombre), para elegir en "Añadir otro descuento" */
+export function knownBrandList(): { key: string; name: string }[] {
+  const seen = new Set<string>();
+  const out: { key: string; name: string }[] = [];
+  for (const [key, v] of Object.entries(KNOWN)) {
+    const name = v.name ?? key;
+    if (seen.has(name)) continue;
+    seen.add(name);
+    out.push({ key, name });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name, "es"));
+}
+
 const PALETTE = ["#334155", "#3F4E6B", "#4B5563", "#2E5E4E", "#5B4636", "#4A3F6B", "#3B5B6B"];
 
 export function brandKey(rotulo: string): string {

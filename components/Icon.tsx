@@ -121,6 +121,12 @@ const P = {
       <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
     </>
   ),
+  card: (
+    <>
+      <rect width="20" height="14" x="2" y="5" rx="2" />
+      <line x1="2" x2="22" y1="10" y2="10" />
+    </>
+  ),
   refresh: (
     <>
       <path d="M21 12a9 9 0 1 1-3-6.7L21 8" />

@@ -11,6 +11,8 @@ import { useJSON, r3 } from "@/lib/useJSON";
 import type { Place, RouteResponse } from "@/lib/types";
 import { fuelByKey } from "@/lib/fuels";
 import { fmtEuros, fmtMinutes, fmtPrice } from "@/lib/format";
+import { useDiscounts } from "@/lib/discountStore";
+import { encodeDiscounts } from "@/lib/discounts";
 
 type Pt = { lat: number; lon: number; label: string };
 
@@ -23,8 +25,13 @@ export function RouteScreen() {
   const [to, setTo] = useState<Pt | null>(null);
   const [editing, setEditing] = useState<null | "from" | "to">(null);
 
+  const [discState] = useDiscounts();
   const origin = from ?? (loc ? { lat: loc.lat, lon: loc.lon, label: loc.label ?? "Mi ubicación" } : null);
-  const url = origin && to ? `/api/route?from=${r3(origin.lat)},${r3(origin.lon)}&to=${r3(to.lat)},${r3(to.lon)}&fuel=${fuel}&tank=${settings.tank}` : null;
+  const dParam = encodeDiscounts(discState);
+  const url =
+    origin && to
+      ? `/api/route?from=${r3(origin.lat)},${r3(origin.lon)}&to=${r3(to.lat)},${r3(to.lon)}&fuel=${fuel}&tank=${settings.tank}${dParam ? `&d=${encodeURIComponent(dParam)}` : ""}`
+      : null;
   const { data, error, loading } = useJSON<RouteResponse>(url);
 
   const pick = (p: Place) => {
@@ -125,7 +132,7 @@ export function RouteScreen() {
                   <span className="col-2 grow min0 left">
                     <span className="b17 ellipsis">{best.station.name}</span>
                     <span className="muted sm">
-                      Km {best.kmAlong} · desvío +{best.detourMin} min
+                      Km {best.kmAlong} · desvío +{best.detourMin} min{best.station.disc ? ` · con ${best.station.disc.label}` : ""}
                     </span>
                   </span>
                   <span className="price-lg green">{fmtPrice(best.station.prices[fuel])} €</span>
@@ -146,7 +153,7 @@ export function RouteScreen() {
                   <span className="col-2 grow min0 left">
                     <span className="b15 ellipsis">{s.station.name}</span>
                     <span className="muted sm ellipsis">
-                      Km {s.kmAlong} · desvío +{s.detourMin} min{s.netSavings > 0 ? ` · ahorras ${fmtEuros(s.netSavings)} €` : ""}
+                      Km {s.kmAlong} · desvío +{s.detourMin} min{s.station.disc ? ` · con ${s.station.disc.label}` : ""}{s.netSavings > 0 ? ` · ahorras ${fmtEuros(s.netSavings)} €` : ""}
                     </span>
                   </span>
                   <span className="price-sm">{fmtPrice(s.station.prices[fuel])} €</span>

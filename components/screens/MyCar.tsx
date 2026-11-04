@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "../Icon";
@@ -148,6 +149,17 @@ export function MyCar() {
             </div>
           </section>
         )}
+
+        <Link href="/descuentos" className="row-card">
+          <span className="soft-icon amber" aria-hidden="true">
+            <Icon name="card" size={20} />
+          </span>
+          <span className="col-2 grow">
+            <span className="b15">Mis descuentos</span>
+            <span className="muted b12">Tarjetas de fidelización: precio final real</span>
+          </span>
+          <Icon name="chevronRight" size={20} color="#5B6675" stroke={2.4} />
+        </Link>
 
         <section className="card stack-10">
           <h2 className="eyebrow">APP PARA IR A LA GASOLINERA</h2>

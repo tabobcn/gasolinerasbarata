@@ -72,9 +72,11 @@ export function normalize(r: RawStation): Station | null {
 }
 
 async function getJSON(url: string, revalidate: number | false): Promise<RawResponse> {
+  // Precios de hoy: siempre frescos (ya hay caché en memoria de 20 min y en la CDN).
+  // Históricos: caché larga de Next, porque los días pasados no cambian.
   const res = await fetch(url, {
     headers: { Accept: "application/json" },
-    next: { revalidate },
+    ...(revalidate === 0 ? { cache: "no-store" as const } : { next: { revalidate } }),
     signal: AbortSignal.timeout(25000),
   });
   if (!res.ok) throw new Error(`Ministerio respondió ${res.status}`);
@@ -115,13 +117,13 @@ function toDataset(raw: RawResponse): Dataset {
 
 export function provinceStations(provId: string): Promise<Dataset> {
   return cached(`p:${provId}`, async () =>
-    toDataset(await getJSON(`${BASE}/EstacionesTerrestres/FiltroProvincia/${provId}`, 1800)),
+    toDataset(await getJSON(`${BASE}/EstacionesTerrestres/FiltroProvincia/${provId}`, 0)),
   );
 }
 
 export function municipalityStations(munId: string): Promise<Dataset> {
   return cached(`m:${munId}`, async () =>
-    toDataset(await getJSON(`${BASE}/EstacionesTerrestres/FiltroMunicipio/${munId}`, 1800)),
+    toDataset(await getJSON(`${BASE}/EstacionesTerrestres/FiltroMunicipio/${munId}`, 0)),
   );
 }
 

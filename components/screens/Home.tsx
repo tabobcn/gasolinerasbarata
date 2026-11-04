@@ -16,6 +16,9 @@ import { average, bestValue } from "@/lib/savings";
 import { fmtCents, fmtEuros, fmtKm, fmtPrice, timeAgo } from "@/lib/format";
 import { fuelByKey } from "@/lib/fuels";
 import { openStatus } from "@/lib/hours";
+import { useDiscounts } from "@/lib/discountStore";
+import { applyDiscounts } from "@/lib/discounts";
+import { DiscountToggle } from "../DiscountToggle";
 
 const RADII = [2, 5, 10, 20];
 
@@ -26,10 +29,11 @@ export function Home() {
   const [sheet, setSheet] = useState(false);
   const fuel = settings.fuels.includes(settings.fuel) ? settings.fuel : settings.fuels[0] ?? "g95";
   const { data, error, loading, reload } = useJSON<StationsResponse>(loc ? stationsUrl(loc.lat, loc.lon, settings.radius) : null);
+  const [disc] = useDiscounts();
 
   const view = useMemo(() => {
     if (!data) return null;
-    const withFuel = data.stations.filter((s) => s.prices[fuel] != null);
+    const withFuel = applyDiscounts(data.stations, disc).filter((s) => s.prices[fuel] != null);
     const openOnes = withFuel.filter((s) => openStatus(s.hours, s.provId).open !== false);
     const best = bestValue(openOnes.length ? openOnes : withFuel, fuel, settings.tank);
     const avg = average(withFuel, fuel);
@@ -38,7 +42,7 @@ export function Home() {
       .sort((a, b) => a.prices[fuel]! - b.prices[fuel]! || (a.dist ?? 0) - (b.dist ?? 0))
       .slice(0, 12);
     return { best, avg, others, count: withFuel.length };
-  }, [data, fuel, settings.tank]);
+  }, [data, fuel, settings.tank, disc]);
 
   const place = loc?.label ?? data?.stations[0]?.mun ?? (loc ? "Tu zona" : "¿Dónde estás?");
   const best = view?.best;
@@ -73,6 +77,8 @@ export function Home() {
         <ModeTabs mode="fuel" />
 
         <FuelChips fuels={settings.fuels} value={fuel} onChange={(f) => setSettings((s) => ({ ...s, fuel: f }))} />
+
+        {data && <DiscountToggle />}
 
         <AlertsBanner />
 
@@ -136,7 +142,7 @@ export function Home() {
           <section className="card hero" aria-labelledby="best-title">
             <div className="row-between">
               <span className="eyebrow green" id="best-title">
-                MEJOR OPCIÓN AHORA
+                {best.station.disc ? "MEJOR OPCIÓN CON TUS TARJETAS" : "MEJOR OPCIÓN AHORA"}
               </span>
               <span className="muted b12">{timeAgo(data!.updatedAt)}</span>
             </div>
@@ -150,11 +156,20 @@ export function Home() {
               </span>
             </Link>
             <div className="row-between end">
-              <span className="big-price green">
-                <span className="num">{fmtPrice(bestPrice)}</span>
-                <span className="unit">€/l</span>
+              <span className="col-2">
+                {best.station.disc && best.station.listPrices?.[fuel] != null && (
+                  <span className="strike b15">{fmtPrice(best.station.listPrices[fuel])} €</span>
+                )}
+                <span className="big-price green">
+                  <span className="num">{fmtPrice(bestPrice)}</span>
+                  <span className="unit">€/l</span>
+                </span>
               </span>
-              {view.avg != null && view.avg - bestPrice >= 0.005 ? (
+              {best.station.disc ? (
+                <span className="pill amber">
+                  Con {best.station.disc.label} −{best.station.disc.cts} cts
+                </span>
+              ) : view.avg != null && view.avg - bestPrice >= 0.005 ? (
                 <span className="pill green">
                   <Icon name="trendDown" size={14} stroke={2.6} />
                   {fmtCents(view.avg - bestPrice)} bajo la media

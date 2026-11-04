@@ -29,10 +29,16 @@ export function StationRow({ s, fuel, avg }: { s: Station; fuel: FuelKey; avg: n
         <span className="price-sm" style={{ color: lv?.color }}>
           {fmtPrice(p)} €
         </span>
-        {lv && (
-          <span className="tag" style={{ color: lv.color, background: lv.bg }}>
-            {lv.label}
+        {s.disc && s.listPrices?.[fuel] != null ? (
+          <span className="tag disc" title={`Precio de surtidor ${fmtPrice(s.listPrices[fuel])} €`}>
+            {s.disc.label} · antes {fmtPrice(s.listPrices[fuel])}
           </span>
+        ) : (
+          lv && (
+            <span className="tag" style={{ color: lv.color, background: lv.bg }}>
+              {lv.label}
+            </span>
+          )
         )}
       </span>
     </Link>

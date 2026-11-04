@@ -11,7 +11,7 @@ type Store<T> = {
   subscribe: (l: () => void) => () => void;
 };
 
-function createPersisted<T>(key: string, initial: T, merge = false): Store<T> {
+export function createPersisted<T>(key: string, initial: T, merge = false): Store<T> {
   let state = initial;
   let loaded = false;
   const listeners = new Set<() => void>();
