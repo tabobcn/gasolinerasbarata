@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "../LocationProvider";
 import { useNavigate } from "../NavigateProvider";
 import { PlaceSearch } from "../PlaceSearch";
 import { BottomNav, EmptyState, ModeTabs, Sheet, Skeleton } from "../ui";
 import { Icon } from "../Icon";
 import { AvailBadge, ChargerRow, ChargerTile } from "../ChargerBits";
-import { settingsStore, useSettings } from "@/lib/store";
+import { modeStore, settingsStore, useSettings } from "@/lib/store";
 import { r3, stationsUrl, useJSON } from "@/lib/useJSON";
 import type { StationsResponse } from "@/lib/types";
 import { average, CONSUMPTION_L_100KM } from "@/lib/savings";
@@ -33,6 +33,7 @@ const kw = (n: number) => `${String(Math.round(n * 10) / 10).replace(".", ",")} 
 export function Charge() {
   const { loc, status, ready, locate, setPlace } = useLocation();
   const [settings] = useSettings();
+  useEffect(() => modeStore.set("charge"), []);
   const car = carFrom(settings);
   const goTo = useNavigate();
   const [sheet, setSheet] = useState(false);
@@ -216,8 +217,8 @@ export function Charge() {
             </Link>
             {hg.price != null ? (
               <span className="big-price blue">
-                <span className="num">{hg.price === 0 ? "Gratis" : euro(hg.price)}</span>
-                {hg.price !== 0 && <span className="unit">€/kWh</span>}
+                <span className="num">{euro(hg.price)}</span>
+                <span className="unit">€/kWh</span>
               </span>
             ) : (
               <span className="b15 muted">Precio no disponible en REVE</span>
@@ -225,7 +226,7 @@ export function Charge() {
             <div className="saving-box">
               Llenar del 20 al 100 %:{" "}
               <strong>
-                {hg.fill.cost != null ? `${hg.fill.cost === 0 ? "gratis" : `${euro(hg.fill.cost)} €`} · ` : ""}
+                {hg.fill.cost != null ? `${euro(hg.fill.cost)} € · ` : ""}
                 {fmtMinutes(hg.fill.minutes)}
               </strong>
             </div>
@@ -281,6 +282,9 @@ export function Charge() {
                 Ver {view.rest.length - 15} más
               </button>
             )}
+            <Link href="/mapa?modo=carga" className="btn soft">
+              <Icon name="map" size={18} /> Ver los cargadores en el mapa
+            </Link>
           </>
         )}
 

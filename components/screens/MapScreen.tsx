@@ -8,9 +8,10 @@ import { useNavigate } from "../NavigateProvider";
 import { PlaceSearch } from "../PlaceSearch";
 import { stationHref } from "../StationRow";
 import { BottomNav, BrandTile, Sheet } from "../ui";
+import { ChargerTile } from "../ChargerBits";
 import { Icon, LocateIcon } from "../Icon";
-import { settingsStore, useSettings } from "@/lib/store";
-import { stationsUrl, useJSON } from "@/lib/useJSON";
+import { settingsStore, useMode, useSettings } from "@/lib/store";
+import { r3, stationsUrl, useJSON } from "@/lib/useJSON";
 import type { Station, StationsResponse } from "@/lib/types";
 import { average, levelFor } from "@/lib/savings";
 import { fmtKm, fmtPrice } from "@/lib/format";
@@ -20,12 +21,23 @@ import { brandStyle } from "@/lib/brands";
 import { haversineKm } from "@/lib/geo";
 import { useDiscounts } from "@/lib/discountStore";
 import { activeCount, applyDiscounts } from "@/lib/discounts";
+import { availText, carFrom, chargerName, cpoStyle, EV_KWH_100KM, summarize, type Car, type ChargersResponse, type Summary } from "@/lib/chargers";
 
 const RADII = [2, 5, 10, 20];
 const FALLBACK = { lat: 40.4168, lon: -3.7038 }; // Puerta del Sol
 
 /** Mapa base gratuito y sin clave (OpenFreeMap, datos de OpenStreetMap). Se puede cambiar con NEXT_PUBLIC_MAP_STYLE. */
 const MAP_STYLE = process.env.NEXT_PUBLIC_MAP_STYLE || "https://tiles.openfreemap.org/styles/positron";
+
+const euro = (n: number) => n.toFixed(2).replace(".", ",");
+const BOLT = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>`;
+
+/** Precio que enseñamos de un punto de recarga: el del enchufe que le va a tu coche */
+function chargerPrice(s: Summary, car: Car): number | null {
+  if (car.electric) return s.best?.price ?? null;
+  const ps = s.groups.map((g) => g.price).filter((p): p is number => p != null);
+  return ps.length ? Math.min(...ps) : null;
+}
 
 function esc(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -48,6 +60,20 @@ export function MapScreen() {
   const [openOnly, setOpenOnly] = useState(false);
   const [sheet, setSheet] = useState<null | "search" | "fuel">(null);
   const [ready, setReady] = useState(false);
+  // Gasolineras o cargadores (nunca mezclados). Recuerda el último modo usado.
+  const [mode, setMode] = useMode();
+  const car = carFrom(settings);
+  const [onlyCompat, setOnlyCompat] = useState(true);
+  const [onlyWorking, setOnlyWorking] = useState(false);
+  useEffect(() => {
+    const m = new URLSearchParams(window.location.search).get("modo");
+    if (m === "carga") setMode("charge");
+    else if (m === "combustible") setMode("fuel");
+  }, [setMode]);
+  const switchMode = (m: "fuel" | "charge") => {
+    setMode(m);
+    setSel(null);
+  };
 
   // Centro inicial: ?lat&lon (desde la ficha) o la ubicación actual
   useEffect(() => {
@@ -61,16 +87,35 @@ export function MapScreen() {
     } else if (loc) setCenter({ lat: loc.lat, lon: loc.lon });
   }, [loc, center]);
 
-  const { data, loading } = useJSON<StationsResponse>(center ? stationsUrl(center.lat, center.lon, settings.radius) : null);
+  const { data, loading } = useJSON<StationsResponse>(center && mode === "fuel" ? stationsUrl(center.lat, center.lon, settings.radius) : null);
+  const chRes = useJSON<ChargersResponse>(center && mode === "charge" ? `/api/chargers?lat=${r3(center.lat)}&lon=${r3(center.lon)}&radius=${settings.radius}` : null);
 
   const [disc, setDisc] = useDiscounts();
   const stations = useMemo(() => {
+    if (mode !== "fuel") return [];
     const list = applyDiscounts(data?.stations ?? [], disc).filter((s) => s.prices[fuel] != null);
     return openOnly ? list.filter((s) => openStatus(s.hours, s.provId).open !== false) : list;
-  }, [data, fuel, openOnly, disc]);
+  }, [data, fuel, openOnly, disc, mode]);
   const avg = useMemo(() => average(stations, fuel), [stations, fuel]);
   const cheapestId = useMemo(() => [...stations].sort((a, b) => a.prices[fuel]! - b.prices[fuel]!)[0]?.id, [stations, fuel]);
   const selected: Station | undefined = stations.find((s) => s.id === sel) ?? stations.find((s) => s.id === cheapestId);
+
+  // ----- Modo carga -----
+  const carKey = `${car.electric}|${car.plugs.join(",")}|${car.ac}|${car.dc}|${car.battery}`;
+  const chargers = useMemo(() => {
+    if (mode !== "charge" || !chRes.data) return [];
+    const now = Date.now();
+    let list = chRes.data.items.map((c) => summarize(c, car, now));
+    if (car.electric && onlyCompat) list = list.filter((x) => x.compatible);
+    if (onlyWorking) list = list.filter((x) => !x.allDown);
+    return list;
+  }, [chRes.data, mode, carKey, onlyCompat, onlyWorking]); // eslint-disable-line react-hooks/exhaustive-deps
+  const bestChId = useMemo(() => {
+    const ok = chargers.filter((x) => x.best && !x.allDown && x.best.fill.cost != null && (!car.electric || x.compatible));
+    const score = (x: Summary) => x.best!.fill.cost! + (x.ch.dist ?? 0) * 2 * (EV_KWH_100KM / 100) * (x.best!.price ?? 0.4);
+    return (car.electric ? ok.sort((a, b) => score(a) - score(b))[0] : undefined)?.ch.id ?? chargers[0]?.ch.id;
+  }, [chargers, car.electric]);
+  const selCh: Summary | undefined = chargers.find((x) => x.ch.id === sel) ?? chargers.find((x) => x.ch.id === bestChId);
 
   // Crear el mapa
   useEffect(() => {
@@ -132,6 +177,38 @@ export function MapScreen() {
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
     const compact = zoom < 12.5;
+    if (mode === "charge") {
+      const selId = selCh?.ch.id;
+      const ordered = [...chargers].sort((a, b) => (a.ch.id === selId ? 1 : 0) - (b.ch.id === selId ? 1 : 0));
+      for (const x of ordered) {
+        const price = chargerPrice(x, car);
+        const on = x.ch.id === selId;
+        const st = cpoStyle(x.ch.party, x.ch.operator);
+        const off = (car.electric && !x.compatible) || x.allDown;
+        const color = x.allDown ? "#B5341A" : off ? "#5B6675" : price != null ? "#1F4FD1" : "#5B6675";
+        const wrap = document.createElement("div");
+        const node = document.createElement("button");
+        wrap.appendChild(node);
+        node.type = "button";
+        node.className = compact && !on ? "pin-dot" : `pin ev${on ? " on" : ""}${off ? " off" : ""}`;
+        node.setAttribute("aria-label", `${chargerName(x.ch)}, ${price != null ? `${euro(price)} euros el kWh` : "precio no disponible"}`);
+        if (compact && !on) {
+          node.style.background = color;
+        } else {
+          node.innerHTML = `<span class="pin-pill">
+              <span class="pin-tile" style="background:${st.bg};color:${st.fg}">${esc(st.mark)}</span>
+              <span class="pin-price" style="${on ? "" : `color:${color}`}">${price != null ? euro(price) : BOLT}</span>
+            </span><span class="pin-tip"></span>`;
+        }
+        node.addEventListener("click", (e) => {
+          e.stopPropagation();
+          setSel(x.ch.id);
+        });
+        const m = new lib.Marker({ element: wrap, anchor: compact && !on ? "center" : "bottom" }).setLngLat([x.ch.lon, x.ch.lat]).addTo(map);
+        markersRef.current.push(m);
+      }
+      return;
+    }
     // primero las caras y al final las baratas y la seleccionada, para que queden encima
     const ordered = [...stations].sort((a, b) => b.prices[fuel]! - a.prices[fuel]!);
     const selId = selected?.id;
@@ -162,7 +239,7 @@ export function MapScreen() {
       const m = new lib.Marker({ element: wrap, anchor: compact && !on ? "center" : "bottom" }).setLngLat([s.lon, s.lat]).addTo(map);
       markersRef.current.push(m);
     }
-  }, [stations, fuel, avg, selected?.id, zoom, ready]);
+  }, [stations, fuel, avg, selected?.id, zoom, ready, mode, chargers, selCh?.ch.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mi posición
   useEffect(() => {
@@ -206,10 +283,15 @@ export function MapScreen() {
   const selPrice = selected?.prices[fuel];
   const selLv = selPrice != null ? levelFor(selPrice, avg) : null;
   const selDist = selected && gps ? haversineKm(gps.lat, gps.lon, selected.lat, selected.lon) : selected?.dist;
+  const chDist = selCh && gps ? haversineKm(gps.lat, gps.lon, selCh.ch.lat, selCh.ch.lon) : selCh?.ch.dist;
+  const chPrice = selCh ? chargerPrice(selCh, car) : null;
+  const chCost = selCh && car.electric ? selCh.best?.fill.cost ?? null : null;
+  const chAvail = selCh ? availText(selCh.avail) : null;
+  const showCard = mode === "fuel" ? !!(selected && selPrice != null && selLv) : !!selCh;
 
   return (
     <div className="map-screen">
-      <div ref={el} className="map" aria-label="Mapa de gasolineras" />
+      <div ref={el} className="map" aria-label={mode === "fuel" ? "Mapa de gasolineras" : "Mapa de puntos de recarga"} />
       {!center && (
         <div className="map-empty">
           <p className="b15">Activa la ubicación o busca un sitio</p>
@@ -225,10 +307,44 @@ export function MapScreen() {
       )}
 
       <div className="map-top">
+        <div role="tablist" aria-label="Qué ver en el mapa" className="mode-tabs floating">
+          <button type="button" role="tab" aria-selected={mode === "fuel"} className={mode === "fuel" ? "on" : undefined} onClick={() => switchMode("fuel")}>
+            <Icon name="pump" size={16} stroke={2.4} color={mode === "fuel" ? "#0B7A43" : "currentColor"} />
+            Gasolineras
+          </button>
+          <button type="button" role="tab" aria-selected={mode === "charge"} className={mode === "charge" ? "on" : undefined} onClick={() => switchMode("charge")}>
+            <Icon name="bolt" size={16} stroke={mode === "charge" ? 1.6 : 2.2} fill={mode === "charge" ? "#1F4FD1" : "none"} color={mode === "charge" ? "#1F4FD1" : "currentColor"} />
+            Cargadores
+          </button>
+        </div>
         <button type="button" className="search-box as-button" onClick={() => setSheet("search")}>
           <Icon name="search" size={20} color="#5B6675" />
           <span className="muted b15">Buscar zona o dirección</span>
         </button>
+        {mode === "charge" ? (
+          <div className="chips scroll-x">
+            {car.electric ? (
+              <button type="button" className={`chip shadow${onlyCompat ? " on" : ""}`} aria-pressed={onlyCompat} onClick={() => setOnlyCompat((v) => !v)}>
+                Compatibles con mi coche
+              </button>
+            ) : (
+              <Link href="/mi-coche" className="chip shadow">
+                <Icon name="car" size={14} stroke={2.4} /> Mi coche
+              </Link>
+            )}
+            <button type="button" className={`chip shadow${onlyWorking ? " on" : ""}`} aria-pressed={onlyWorking} onClick={() => setOnlyWorking((v) => !v)}>
+              Que funcionan
+            </button>
+            <button
+              type="button"
+              className="chip shadow"
+              onClick={() => settingsStore.set((s) => ({ ...s, radius: RADII[(RADII.indexOf(s.radius) + 1) % RADII.length] ?? 5 }))}
+              aria-label={`Radio ${settings.radius} km, toca para cambiar`}
+            >
+              {settings.radius} km
+            </button>
+          </div>
+        ) : (
         <div className="chips scroll-x">
           <button type="button" className="chip on shadow" onClick={() => setSheet("fuel")}>
             {fuelByKey(fuel)?.chip}
@@ -251,15 +367,16 @@ export function MapScreen() {
             </button>
           )}
         </div>
+        )}
         {farAway && (
           <button type="button" className="btn dark small center-self" onClick={searchHere}>
             <Icon name="search" size={16} /> Buscar en esta zona
           </button>
         )}
-        {loading && <span className="loading-pill">Cargando precios…</span>}
+        {(loading || chRes.loading) && <span className="loading-pill">{mode === "fuel" ? "Cargando precios…" : "Cargando cargadores…"}</span>}
       </div>
 
-      <div className="map-side" style={{ bottom: selected ? 300 : 104 }}>
+      <div className="map-side" style={{ bottom: showCard ? 300 : 104 }}>
         {gps && (
           <span className="gps-chip">
             <span className="dot" aria-hidden="true" />
@@ -271,7 +388,7 @@ export function MapScreen() {
         </button>
       </div>
 
-      {selected && selPrice != null && selLv && (
+      {mode === "fuel" && selected && selPrice != null && selLv && (
         <div className="map-card">
           <span aria-hidden="true" className="sheet-grip" />
           <div className="row-12">
@@ -300,6 +417,43 @@ export function MapScreen() {
             </button>
             <Link href={stationHref(selected)} className="btn soft grow h52">
               Ver precios
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {mode === "charge" && selCh && chAvail && (
+        <div className="map-card">
+          <span aria-hidden="true" className="sheet-grip" />
+          <div className="row-12">
+            <ChargerTile ch={selCh.ch} size={44} />
+            <div className="col-2 grow min0">
+              <span className="b16 ellipsis">{chargerName(selCh.ch)}</span>
+              <span className="muted sm ellipsis">
+                {fmtKm(chDist)} · {selCh.plugs}
+              </span>
+            </div>
+            <div className="col-2 end">
+              <span className={`price-lg${chPrice != null ? " blue-ink" : " muted"}`}>{chPrice != null ? `${euro(chPrice)} €` : "—"}</span>
+              <span className="b12 muted nowrap">{chCost != null ? `${euro(chCost)} € lleno` : chPrice != null ? "por kWh" : "sin precio"}</span>
+            </div>
+          </div>
+          <span className={`b12 tone-${car.electric && !selCh.compatible ? "muted" : chAvail.tone}`}>
+            {selCh.ch.id === bestChId && car.electric ? "El mejor para tu coche · " : ""}
+            {car.electric && !selCh.compatible ? "No compatible con tu coche" : chAvail.text}
+          </span>
+          <div className="row-10">
+            <button
+              type="button"
+              className="btn primary grow h52"
+              onClick={() =>
+                goTo({ lat: selCh.ch.lat, lon: selCh.ch.lon, dist: chDist, name: chargerName(selCh.ch), address: selCh.ch.address ?? "", brand: cpoStyle(selCh.ch.party, selCh.ch.operator).name })
+              }
+            >
+              <Icon name="navigate" size={18} stroke={2.4} /> Ir
+            </button>
+            <Link href={`/cargador/${selCh.ch.id}`} className="btn soft grow h52">
+              Ver ficha
             </Link>
           </div>
         </div>

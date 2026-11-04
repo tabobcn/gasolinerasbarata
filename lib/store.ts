@@ -134,3 +134,8 @@ export const useAlerts = () => usePersisted(alertsStore);
 export function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
+
+/** Último modo usado (gasolina o carga), para que el mapa abra en el mismo */
+export type AppMode = "fuel" | "charge";
+export const modeStore = createPersisted<AppMode>("gc.mode", "fuel");
+export const useMode = () => usePersisted(modeStore);

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { brandStyle, tileCss } from "@/lib/brands";
 import { fuelByKey, type FuelKey } from "@/lib/fuels";
+import { useMode } from "@/lib/store";
 import { Icon, type IconName } from "./Icon";
 
 export function BrandTile({ brand, size = 40 }: { brand: string; size?: number }) {
@@ -26,12 +27,14 @@ const TABS: { href: string; label: string; icon: IconName; match: (p: string) =>
 
 export function BottomNav() {
   const path = usePathname() || "/";
+  const [mode] = useMode();
   return (
     <nav aria-label="Principal" className="bottom-nav">
       {TABS.map((t) => {
         const on = t.match(path);
+        const href = t.href === "/" && mode === "charge" ? "/carga" : t.href;
         return (
-          <Link key={t.href} href={t.href} aria-current={on ? "page" : undefined} className={on ? "on" : undefined}>
+          <Link key={t.href} href={href} aria-current={on ? "page" : undefined} className={on ? "on" : undefined}>
             <Icon name={t.icon} size={24} stroke={on ? 2.2 : 2} />
             {t.label}
           </Link>

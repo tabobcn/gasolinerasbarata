@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "../LocationProvider";
 import { useNavigate } from "../NavigateProvider";
 import { PlaceSearch } from "../PlaceSearch";
@@ -9,7 +9,7 @@ import { StationRow, stationHref } from "../StationRow";
 import { AlertsBanner } from "../AlertsBanner";
 import { BottomNav, BrandTile, EmptyState, FuelChips, ModeTabs, Sheet, Skeleton } from "../ui";
 import { Icon } from "../Icon";
-import { favoritesStore, settingsStore, useFavorites, useSettings } from "@/lib/store";
+import { favoritesStore, modeStore, settingsStore, useFavorites, useSettings } from "@/lib/store";
 import { stationsUrl, useJSON } from "@/lib/useJSON";
 import type { StationsResponse } from "@/lib/types";
 import { average, bestValue } from "@/lib/savings";
@@ -25,6 +25,7 @@ const RADII = [2, 5, 10, 20];
 export function Home() {
   const { loc, status, ready, locate, setPlace } = useLocation();
   const [settings, setSettings] = useSettings();
+  useEffect(() => modeStore.set("fuel"), []);
   const [favs] = useFavorites();
   const [sheet, setSheet] = useState(false);
   const fuel = settings.fuels.includes(settings.fuel) ? settings.fuel : settings.fuels[0] ?? "g95";

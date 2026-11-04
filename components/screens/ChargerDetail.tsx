@@ -87,6 +87,8 @@ export function ChargerDetail({ id }: { id: string }) {
 
   const dist = ch && loc ? haversineKm(loc.lat, loc.lon, ch.lat, ch.lon) : null;
   const lastCheck = ch?.evses.map((e) => e.chk).filter(Boolean).sort().pop() ?? null;
+  // REVE permite pocas consultas por punto y hora: se guarda 15 minutos y no se puede pedir antes
+  const canRefresh = !lastCheck || Date.now() - Date.parse(lastCheck) > 15 * 60_000;
 
   if (error && !data) {
     return (
@@ -170,7 +172,7 @@ export function ChargerDetail({ id }: { id: string }) {
                       {!g.compatible && car.electric ? " · tu coche no lo admite" : ""}
                     </span>
                   </span>
-                  <span className={`price-sm${g.compatible ? " blue-ink" : " muted"}`}>{g.price != null ? (g.price === 0 ? "Gratis" : fmtKwhPrice(g.price)) : "—"}</span>
+                  <span className={`price-sm${g.compatible ? " blue-ink" : " muted"}`}>{g.price != null ? fmtKwhPrice(g.price) : "—"}</span>
                 </button>
               );
             })}
@@ -188,7 +190,7 @@ export function ChargerDetail({ id }: { id: string }) {
               <span className="col-0">
                 <span className="b13 soft-text">Cargar del 20 % al 100 %</span>
                 <span className="car-cost">
-                  {sel.fill.cost != null ? (sel.fill.cost === 0 ? "Gratis" : `${euro(sel.fill.cost)} €`) : `~${fmtMinutes(sel.fill.minutes)}`}
+                  {sel.fill.cost != null ? `${euro(sel.fill.cost)} €` : `~${fmtMinutes(sel.fill.minutes)}`}
                 </span>
               </span>
               <span className="col-2 end">
@@ -291,8 +293,8 @@ export function ChargerDetail({ id }: { id: string }) {
       </div>
 
       <div className="action-bar">
-        <button type="button" className="btn soft h52" onClick={() => fetchLive(true)} disabled={liveState === "loading"}>
-          <Icon name="refresh" size={18} /> {liveState === "loading" ? "Comprobando…" : "Actualizar"}
+        <button type="button" className="btn soft h52" onClick={() => fetchLive(true)} disabled={liveState === "loading" || !canRefresh}>
+          <Icon name="refresh" size={18} /> {liveState === "loading" ? "Comprobando…" : canRefresh ? "Actualizar" : "Al día"}
         </button>
         <button type="button" className="btn primary big grow" onClick={() => goTo(target)}>
           <Icon name="navigate" size={20} stroke={2.4} /> Ir

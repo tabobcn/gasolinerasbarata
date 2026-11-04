@@ -140,13 +140,16 @@ const vatFactor = (c: Conn) => 1 + (c.v ?? 0) / 100;
 
 /** €/kWh con IVA (la tarifa de REVE viene sin IVA) */
 export function priceKwh(c: Conn): number | null {
-  return c.e != null ? c.e * vatFactor(c) : null;
+  return c.e != null && c.e > 0 ? c.e * vatFactor(c) : null;
 }
 
-/** ¿Ha publicado un precio real? Un "0 € por recarga" sin nada más no lo contamos como precio */
-export const hasPrice = (c: Conn) => c.e != null || (c.t ?? 0) > 0 || (c.f ?? 0) > 0;
-/** La tarifa solo dice "0 € por recarga": puede ser gratis o que el operador no haya puesto la real */
-export const zeroOnly = (c: Conn) => c.e == null && !c.t && c.f === 0;
+/**
+ * ¿Ha publicado un precio real? Los "0 €" no cuentan: casi siempre es que el operador no ha puesto
+ * su tarifa, y si los contáramos saldrían siempre los primeros.
+ */
+export const hasPrice = (c: Conn) => (c.e ?? 0) > 0 || (c.t ?? 0) > 0 || (c.f ?? 0) > 0;
+/** La tarifa existe pero todo está a 0 € */
+export const zeroOnly = (c: Conn) => !hasPrice(c) && (c.e === 0 || c.t === 0 || c.f === 0);
 
 export type FillEstimate = { kwh: number; kw: number; minutes: number; cost: number | null };
 
@@ -486,8 +489,8 @@ export function tariffLines(c: Conn): { label: string; value: string; note: stri
     for (const pc of el.price_components ?? []) {
       const base = Number(String(pc.price).replace(",", "."));
       if (!Number.isFinite(base)) continue;
-      // Los componentes a 0 € (salvo la energía gratis) no aportan nada y confunden
-      if (base === 0 && pc.type !== "ENERGY") continue;
+      // Los componentes a 0 € no aportan nada y confunden
+      if (base === 0) continue;
       const vat = pc.vat != null && pc.vat !== "" ? Number(String(pc.vat).replace(",", ".")) : 0;
       const p = base * (1 + (Number.isFinite(vat) ? vat : 0) / 100);
       if (resv) {
@@ -499,7 +502,7 @@ export function tariffLines(c: Conn): { label: string; value: string; note: stri
       }
       switch (pc.type) {
         case "ENERGY":
-          lines.push({ label: "Energía", value: p === 0 ? "Gratis" : `${euro(p, 3)} €/kWh`, note });
+          lines.push({ label: "Energía", value: `${euro(p, 3)} €/kWh`, note });
           break;
         case "TIME":
           lines.push({ label: "Tiempo cargando", value: `${euro(p / 60, 3)} €/min`, note });
@@ -517,7 +520,7 @@ export function tariffLines(c: Conn): { label: string; value: string; note: stri
     }
   }
   if (!lines.length && hasPrice(c)) {
-    if (c.e != null) lines.push({ label: "Energía", value: c.e === 0 ? "Gratis" : `${euro(c.e * vatFactor(c), 3)} €/kWh`, note: "" });
+    if (c.e) lines.push({ label: "Energía", value: `${euro(c.e * vatFactor(c), 3)} €/kWh`, note: "" });
     if (c.t) lines.push({ label: "Tiempo cargando", value: `${euro((c.t * vatFactor(c)) / 60, 3)} €/min`, note: "" });
     if (c.f) lines.push({ label: "Por recarga", value: `${euro(c.f * vatFactor(c))} €`, note: "" });
   }

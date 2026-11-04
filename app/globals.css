@@ -1616,3 +1616,34 @@ button {
 .tariff-line.line,
 .info-row.line { border-bottom: 1px solid var(--line-2); }
 .info-row .right { max-width: 65%; }
+
+/* Mapa: selector gasolineras / cargadores */
+.mode-tabs button {
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  height: 40px;
+  border-radius: 11px;
+  color: var(--ink-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 800;
+}
+.mode-tabs button.on {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(14, 23, 38, 0.12);
+}
+.mode-tabs.floating {
+  flex: none;
+  background: rgba(227, 231, 236, 0.96);
+  box-shadow: 0 2px 8px rgba(14, 23, 38, 0.14);
+}
+.pin.ev.on .pin-pill { background: var(--blue-ink); }
+.pin.ev.on .pin-tip { background: var(--blue-ink); }
+.pin.ev.off .pin-pill { opacity: 0.85; }
+.pin-price svg { display: block; }
