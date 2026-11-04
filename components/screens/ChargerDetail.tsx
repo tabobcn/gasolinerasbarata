@@ -30,7 +30,9 @@ import {
   prettyCity,
   reservable,
   summarize,
+  hasPrice,
   tariffLines,
+  zeroOnly,
   type Charger,
   type ChargerDetailResponse,
   type ConnGroup,
@@ -237,9 +239,18 @@ export function ChargerDetail({ id }: { id: string }) {
                 ))}
               </div>
             ) : (
-              <div className="note">El operador no ha publicado el precio de este punto en REVE. Consúltalo en su app antes de cargar.</div>
+              <div className="note">
+                {zeroOnly(sel.conn)
+                  ? "En REVE este punto figura con un precio de 0 €. Puede que sea gratis o que el operador no haya puesto su tarifa real: compruébalo en su app antes de cargar."
+                  : "El operador no ha publicado el precio de este punto en REVE. Consúltalo en su app antes de cargar."}
+              </div>
             )}
-            {sel.conn.tu && <span className="muted xs">Precios con IVA · tarifa publicada el {fmtDateTime(sel.conn.tu)}</span>}
+            {hasPrice(sel.conn) && (
+              <span className="muted xs">
+                {sel.conn.v != null ? `Precios con IVA (${sel.conn.v} %)` : "El operador no indica IVA: precio tal cual lo publica"}
+                {sel.conn.tu ? ` · tarifa publicada el ${fmtDateTime(sel.conn.tu)}` : ""}
+              </span>
+            )}
           </section>
         )}
 
@@ -265,7 +276,7 @@ export function ChargerDetail({ id }: { id: string }) {
         )}
 
         <section className="card tight" aria-label="Información">
-          <InfoRow label="Operador" value={prettyAddress(ch.operator) || cpo.name} />
+          <InfoRow label="Operador" value={ch.operator ?? cpo.name} />
           {hours && <InfoRow label="Horario" value={hours} />}
           {parking && <InfoRow label="Dónde está" value={parking} />}
           {facs.length > 0 && <InfoRow label="Cerca" value={facs.join(", ")} />}

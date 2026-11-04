@@ -214,22 +214,20 @@ export function Charge() {
                 </span>
               </span>
             </Link>
-            <div className="row-between end wrap-gap">
-              {hg.price != null ? (
-                <span className="big-price blue">
-                  <span className="num">{euro(hg.price)}</span>
-                  <span className="unit">€/kWh</span>
-                </span>
-              ) : (
-                <span className="b15 muted">Precio no disponible</span>
-              )}
-              <span className="col-2 end">
-                <span className="muted b12">Llenar 20 → 100 %</span>
-                <span className="b20 nowrap">
-                  {hg.fill.cost != null ? `${hg.fill.cost === 0 ? "Gratis" : `${euro(hg.fill.cost)} €`} · ` : ""}
-                  {fmtMinutes(hg.fill.minutes)}
-                </span>
+            {hg.price != null ? (
+              <span className="big-price blue">
+                <span className="num">{hg.price === 0 ? "Gratis" : euro(hg.price)}</span>
+                {hg.price !== 0 && <span className="unit">€/kWh</span>}
               </span>
+            ) : (
+              <span className="b15 muted">Precio no disponible en REVE</span>
+            )}
+            <div className="saving-box">
+              Llenar del 20 al 100 %:{" "}
+              <strong>
+                {hg.fill.cost != null ? `${hg.fill.cost === 0 ? "gratis" : `${euro(hg.fill.cost)} €`} · ` : ""}
+                {fmtMinutes(hg.fill.minutes)}
+              </strong>
             </div>
             {hg.kw > hg.fill.kw + 0.05 && (
               <span className="muted b12">

@@ -143,7 +143,10 @@ export function priceKwh(c: Conn): number | null {
   return c.e != null ? c.e * vatFactor(c) : null;
 }
 
-export const hasPrice = (c: Conn) => c.e != null || c.t != null || c.f != null;
+/** ¿Ha publicado un precio real? Un "0 € por recarga" sin nada más no lo contamos como precio */
+export const hasPrice = (c: Conn) => c.e != null || (c.t ?? 0) > 0 || (c.f ?? 0) > 0;
+/** La tarifa solo dice "0 € por recarga": puede ser gratis o que el operador no haya puesto la real */
+export const zeroOnly = (c: Conn) => c.e == null && !c.t && c.f === 0;
 
 export type FillEstimate = { kwh: number; kw: number; minutes: number; cost: number | null };
 
@@ -226,7 +229,7 @@ export function groups(ch: Charger, car: Car): ConnGroup[] {
     for (const c of e.c) {
       const kind = plugKind(c.s);
       const kw = c.kw ?? e.kw ?? 0;
-      const key = `${kind}|${kw}|${c.e ?? ""}|${c.t ?? ""}|${c.f ?? ""}`;
+      const key = `${kind}|${kw}|${hasPrice(c) ? `${c.e ?? ""}|${c.t ?? ""}|${c.f ?? ""}` : "sin-precio"}`;
       const g = map.get(key);
       if (g) {
         if (!g.evses.includes(e)) g.evses.push(e);
@@ -457,8 +460,11 @@ function restrictionText(r: TariffRestrictions | null | undefined): string {
   }
   const minD = Number(g("min_duration"));
   const maxD = Number(g("max_duration"));
-  if (Number.isFinite(minD) && minD > 0) out.push(`a partir de ${Math.round(minD / 60)} min`);
-  if (Number.isFinite(maxD) && maxD > 0) out.push(`los primeros ${Math.round(maxD / 60)} min`);
+  const hasMin = Number.isFinite(minD) && minD > 0;
+  const hasMax = Number.isFinite(maxD) && maxD > 0 && maxD < 86400; // más de un día = sin límite
+  if (hasMin && hasMax) out.push(`de ${Math.round(minD / 60)} a ${Math.round(maxD / 60)} min`);
+  else if (hasMin) out.push(`a partir de ${Math.round(minD / 60)} min`);
+  else if (hasMax) out.push(`los primeros ${Math.round(maxD / 60)} min`);
   const minK = Number(g("min_kwh"));
   const maxK = Number(g("max_kwh"));
   if (Number.isFinite(minK) && minK > 0) out.push(`desde ${minK} kWh`);
@@ -474,15 +480,26 @@ function restrictionText(r: TariffRestrictions | null | undefined): string {
 export function tariffLines(c: Conn): { label: string; value: string; note: string }[] {
   const lines: { label: string; value: string; note: string }[] = [];
   for (const el of c.el ?? []) {
-    const note = restrictionText(el.restrictions);
+    const r = el.restrictions ?? {};
+    const resv = r["reservation"] as string | undefined;
+    const note = restrictionText(r);
     for (const pc of el.price_components ?? []) {
       const base = Number(String(pc.price).replace(",", "."));
       if (!Number.isFinite(base)) continue;
+      // Los componentes a 0 € (salvo la energía gratis) no aportan nada y confunden
+      if (base === 0 && pc.type !== "ENERGY") continue;
       const vat = pc.vat != null && pc.vat !== "" ? Number(String(pc.vat).replace(",", ".")) : 0;
       const p = base * (1 + (Number.isFinite(vat) ? vat : 0) / 100);
+      if (resv) {
+        // Lo que cobran por reservar (o si reservas y no llegas a cargar)
+        const label = resv === "RESERVATION_EXPIRES" ? "Si reservas y no llegas a cargar" : "Por reservar";
+        const value = pc.type === "FLAT" ? `${euro(p)} €` : pc.type === "ENERGY" ? `${euro(p, 3)} €/kWh` : `${euro(p / 60, 3)} €/min`;
+        lines.push({ label, value, note });
+        continue;
+      }
       switch (pc.type) {
         case "ENERGY":
-          lines.push({ label: "Energía", value: `${euro(p, 3)} €/kWh`, note });
+          lines.push({ label: "Energía", value: p === 0 ? "Gratis" : `${euro(p, 3)} €/kWh`, note });
           break;
         case "TIME":
           lines.push({ label: "Tiempo cargando", value: `${euro(p / 60, 3)} €/min`, note });
@@ -500,11 +517,21 @@ export function tariffLines(c: Conn): { label: string; value: string; note: stri
     }
   }
   if (!lines.length && hasPrice(c)) {
-    if (c.e != null) lines.push({ label: "Energía", value: `${euro(c.e * vatFactor(c), 3)} €/kWh`, note: "" });
-    if (c.t != null) lines.push({ label: "Tiempo cargando", value: `${euro((c.t * vatFactor(c)) / 60, 3)} €/min`, note: "" });
-    if (c.f != null) lines.push({ label: "Por recarga", value: `${euro(c.f * vatFactor(c))} €`, note: "" });
+    if (c.e != null) lines.push({ label: "Energía", value: c.e === 0 ? "Gratis" : `${euro(c.e * vatFactor(c), 3)} €/kWh`, note: "" });
+    if (c.t) lines.push({ label: "Tiempo cargando", value: `${euro((c.t * vatFactor(c)) / 60, 3)} €/min`, note: "" });
+    if (c.f) lines.push({ label: "Por recarga", value: `${euro(c.f * vatFactor(c))} €`, note: "" });
   }
-  return lines;
+  // Primero lo que pagas siempre; luego penalizaciones y reservas
+  const order = (l: { label: string }) => (l.label === "Energía" ? 0 : l.label === "Por recarga" || l.label === "Tiempo cargando" ? 1 : 2);
+  // Algunos operadores repiten el mismo elemento: quitamos duplicados exactos
+  const seen = new Set<string>();
+  const uniq = lines.filter((l) => {
+    const k = `${l.label}|${l.value}|${l.note}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  return uniq.sort((a, b) => order(a) - order(b));
 }
 
 export function fmtDateTime(iso: string | null | undefined): string {
