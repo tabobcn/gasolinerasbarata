@@ -1,0 +1,247 @@
+"use client";
+
+import Link from "next/link";
+import { useMemo, useState } from "react";
+import { useLocation } from "../LocationProvider";
+import { useNavigate } from "../NavigateProvider";
+import { PlaceSearch } from "../PlaceSearch";
+import { StationRow, stationHref } from "../StationRow";
+import { AlertsBanner } from "../AlertsBanner";
+import { BottomNav, BrandTile, EmptyState, FuelChips, ModeTabs, Sheet, Skeleton } from "../ui";
+import { Icon } from "../Icon";
+import { favoritesStore, settingsStore, useFavorites, useSettings } from "@/lib/store";
+import { stationsUrl, useJSON } from "@/lib/useJSON";
+import type { StationsResponse } from "@/lib/types";
+import { average, bestValue } from "@/lib/savings";
+import { fmtCents, fmtEuros, fmtKm, fmtPrice, timeAgo } from "@/lib/format";
+import { fuelByKey } from "@/lib/fuels";
+import { openStatus } from "@/lib/hours";
+
+const RADII = [2, 5, 10, 20];
+
+export function Home() {
+  const { loc, status, ready, locate, setPlace } = useLocation();
+  const [settings, setSettings] = useSettings();
+  const [favs] = useFavorites();
+  const [sheet, setSheet] = useState(false);
+  const fuel = settings.fuels.includes(settings.fuel) ? settings.fuel : settings.fuels[0] ?? "g95";
+  const { data, error, loading, reload } = useJSON<StationsResponse>(loc ? stationsUrl(loc.lat, loc.lon, settings.radius) : null);
+
+  const view = useMemo(() => {
+    if (!data) return null;
+    const withFuel = data.stations.filter((s) => s.prices[fuel] != null);
+    const openOnes = withFuel.filter((s) => openStatus(s.hours, s.provId).open !== false);
+    const best = bestValue(openOnes.length ? openOnes : withFuel, fuel, settings.tank);
+    const avg = average(withFuel, fuel);
+    const others = withFuel
+      .filter((s) => s.id !== best?.station.id)
+      .sort((a, b) => a.prices[fuel]! - b.prices[fuel]! || (a.dist ?? 0) - (b.dist ?? 0))
+      .slice(0, 12);
+    return { best, avg, others, count: withFuel.length };
+  }, [data, fuel, settings.tank]);
+
+  const place = loc?.label ?? data?.stations[0]?.mun ?? (loc ? "Tu zona" : "¿Dónde estás?");
+  const best = view?.best;
+  const bestPrice = best ? best.station.prices[fuel]! : null;
+  const isFav = best ? favs.some((f) => f.id === best.station.id) : false;
+  const goTo = useNavigate();
+
+  const toggleFav = () => {
+    if (!best) return;
+    const s = best.station;
+    favoritesStore.set((list) => (list.some((f) => f.id === s.id) ? list.filter((f) => f.id !== s.id) : [...list, { id: s.id, m: s.munId, name: s.name, brand: s.brand }]));
+  };
+
+  return (
+    <div className="screen with-nav">
+      <div className="stack-16 pad-x top">
+        <div className="row-between">
+          <button type="button" className="place-btn" onClick={() => setSheet(true)}>
+            <span className="muted b13">
+              {loc?.source === "gps" || loc?.source === "saved" ? "Cerca de ti" : "Alrededor de"} · {settings.radius} km
+            </span>
+            <span className="place-name">
+              <span className="ellipsis">{place}</span>
+              <Icon name="chevronDown" size={18} stroke={2.4} />
+            </span>
+          </button>
+          <button type="button" aria-label="Buscar dirección" className="icon-btn round" onClick={() => setSheet(true)}>
+            <Icon name="search" size={20} />
+          </button>
+        </div>
+
+        <ModeTabs mode="fuel" />
+
+        <FuelChips fuels={settings.fuels} value={fuel} onChange={(f) => setSettings((s) => ({ ...s, fuel: f }))} />
+
+        <AlertsBanner />
+
+        {!loc && ready && (
+          <EmptyState
+            icon="pin"
+            title={status === "denied" ? "No tenemos permiso de ubicación" : "¿Dónde buscamos?"}
+            text={
+              status === "denied"
+                ? "Busca tu zona a mano o activa la ubicación para esta web en los ajustes del navegador."
+                : "Usa tu ubicación o busca un sitio para ver las gasolineras más baratas."
+            }
+          >
+            <div className="row-8 wrap center">
+              <button type="button" className="btn primary" onClick={locate}>
+                <Icon name="navigate" size={18} /> Usar mi ubicación
+              </button>
+              <button type="button" className="btn soft" onClick={() => setSheet(true)}>
+                <Icon name="search" size={18} /> Buscar sitio
+              </button>
+            </div>
+          </EmptyState>
+        )}
+
+        {(!ready || status === "locating") && !loc && (
+          <div className="card stack-12">
+            <span className="muted b13">Buscando estaciones cerca de ti…</span>
+            <Skeleton h={120} />
+          </div>
+        )}
+
+        {loc && loading && !data && (
+          <>
+            <Skeleton h={300} r={24} />
+            <Skeleton />
+            <Skeleton />
+          </>
+        )}
+
+        {error && !data && (
+          <EmptyState icon="info" title="No hemos podido cargar los precios" text={error}>
+            <button type="button" className="btn soft" onClick={reload}>
+              <Icon name="refresh" size={18} /> Reintentar
+            </button>
+          </EmptyState>
+        )}
+
+        {data && view && !best && (
+          <EmptyState
+            icon="pump"
+            title={`Sin ${fuelByKey(fuel)?.label.toLowerCase()} en ${settings.radius} km`}
+            text="Prueba con otro combustible o amplía el radio de búsqueda."
+          >
+            <button type="button" className="btn soft" onClick={() => setSettings((s) => ({ ...s, radius: Math.min(25, s.radius * 2) }))}>
+              Ampliar a {Math.min(25, settings.radius * 2)} km
+            </button>
+          </EmptyState>
+        )}
+
+        {best && bestPrice != null && (
+          <section className="card hero" aria-labelledby="best-title">
+            <div className="row-between">
+              <span className="eyebrow green" id="best-title">
+                MEJOR OPCIÓN AHORA
+              </span>
+              <span className="muted b12">{timeAgo(data!.updatedAt)}</span>
+            </div>
+            <Link href={stationHref(best.station)} className="row-12 plain">
+              <BrandTile brand={best.station.brand} size={48} />
+              <span className="col-2 min0">
+                <span className="b17 clamp-2">{best.station.name}</span>
+                <span className="muted sm ellipsis">
+                  {best.station.address} · {fmtKm(best.station.dist)} · {openStatus(best.station.hours, best.station.provId).label}
+                </span>
+              </span>
+            </Link>
+            <div className="row-between end">
+              <span className="big-price green">
+                <span className="num">{fmtPrice(bestPrice)}</span>
+                <span className="unit">€/l</span>
+              </span>
+              {view.avg != null && view.avg - bestPrice >= 0.005 ? (
+                <span className="pill green">
+                  <Icon name="trendDown" size={14} stroke={2.6} />
+                  {fmtCents(view.avg - bestPrice)} bajo la media
+                </span>
+              ) : (
+                <span className="pill amber">En la media de la zona</span>
+              )}
+            </div>
+            <div className="saving-box">
+              {best.savings >= 0.1 ? (
+                <>
+                  Ahorras <strong>{fmtEuros(best.savings)} €</strong> llenando {settings.tank} litros
+                  <span className="muted xs block">Ya descontado lo que gastas en ir y volver</span>
+                </>
+              ) : (
+                <>La mejor relación precio-distancia de tu zona</>
+              )}
+            </div>
+            <div className="row-10">
+              <button type="button" className="btn primary big grow" onClick={() => goTo(best.station)}>
+                <Icon name="navigate" size={20} stroke={2.4} />
+                Ir ahora
+              </button>
+              <button
+                type="button"
+                aria-label={isFav ? "Quitar de favoritas" : "Guardar en favoritas"}
+                aria-pressed={isFav}
+                className={`btn square-56${isFav ? " fav-on" : " soft"}`}
+                onClick={toggleFav}
+              >
+                <Icon name="star" size={22} fill={isFav ? "currentColor" : "none"} />
+              </button>
+            </div>
+          </section>
+        )}
+
+        {view && view.others.length > 0 && (
+          <>
+            <div className="row-between baseline">
+              <h2 className="h2">Otras cerca</h2>
+              {view.avg != null && <span className="muted b13">Media zona {fmtPrice(view.avg)} €</span>}
+            </div>
+            <div className="stack-8">
+              {view.others.map((s) => (
+                <StationRow key={s.id} s={s} fuel={fuel} avg={view.avg} />
+              ))}
+            </div>
+            <Link href="/mapa" className="btn soft">
+              <Icon name="map" size={18} /> Ver las {view.count} en el mapa
+            </Link>
+          </>
+        )}
+
+        {data && (
+          <p className="source">
+            Precios oficiales del Ministerio (Geoportal de Gasolineras), se actualizan cada media hora. Distancias en línea recta.
+          </p>
+        )}
+      </div>
+
+      <Sheet open={sheet} onClose={() => setSheet(false)} label="Cambiar zona">
+        <div className="stack-16">
+          <h2 className="h-sheet">¿Dónde buscamos?</h2>
+          <div className="stack-8">
+            <span className="eyebrow">RADIO</span>
+            <div className="chips">
+              {RADII.map((r) => (
+                <button key={r} type="button" className={`chip${settings.radius === r ? " on" : ""}`} aria-pressed={settings.radius === r} onClick={() => settingsStore.set((s) => ({ ...s, radius: r }))}>
+                  {r} km
+                </button>
+              ))}
+            </div>
+          </div>
+          <PlaceSearch
+            autoFocus
+            onUseGps={() => {
+              locate();
+              setSheet(false);
+            }}
+            onPick={(p) => {
+              setPlace({ lat: p.lat, lon: p.lon, label: p.label });
+              setSheet(false);
+            }}
+          />
+        </div>
+      </Sheet>
+      <BottomNav />
+    </div>
+  );
+}

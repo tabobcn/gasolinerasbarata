@@ -1,0 +1,8 @@
+node_modules
+.next
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+public/maplibre
+
+.vercel
