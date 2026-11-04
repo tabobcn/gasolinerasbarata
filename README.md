@@ -1,5 +1,8 @@
 # Gasolineras Cerca
 
+- **Web publicada:** https://gasolineras-five.vercel.app
+- **Código:** https://github.com/tabobcn/gasolinerasbarata (cada `git push` a `main` se publica solo en Vercel)
+
 Web app móvil (PWA) para encontrar la gasolinera más barata cerca, con el diseño de la app "App Gasolineras – Diseño móvil".
 Inspirada en cómo está montada [llenatucoche.es](https://llenatucoche.es): Next.js en Vercel, API propia que cachea los datos oficiales del Ministerio, un mapa con marcadores de precio y el cálculo de "mejor opción" que descuenta lo que cuesta el desvío.
 
