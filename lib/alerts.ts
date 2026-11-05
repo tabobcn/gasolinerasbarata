@@ -58,7 +58,7 @@ function notify(m: AlertMatch) {
     const url = `/gasolinera/${m.station.id}?m=${m.station.munId}`;
     if (navigator.serviceWorker?.controller || navigator.serviceWorker) {
       navigator.serviceWorker.getRegistration().then((reg) => {
-        if (reg) reg.showNotification(m.title, { body: m.body, tag: m.key, data: { url }, icon: "/pwa-icon/192" });
+        if (reg) reg.showNotification(m.title, { body: m.body, tag: m.key, data: { url }, icon: "/pwa-icon/192?v=2" });
         else new Notification(m.title, { body: m.body, tag: m.key });
       });
     } else {
