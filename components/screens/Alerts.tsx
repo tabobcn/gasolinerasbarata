@@ -13,6 +13,8 @@ import { stationsUrl, useJSON } from "@/lib/useJSON";
 import { fuelByKey, FUELS } from "@/lib/fuels";
 import { fmtKm, fmtPrice } from "@/lib/format";
 import type { StationsResponse } from "@/lib/types";
+import { useDiscounts } from "@/lib/discountStore";
+import { applyDiscounts } from "@/lib/discounts";
 
 /* ---------- Lista de alertas ---------- */
 
@@ -128,7 +130,8 @@ export function NewAlert() {
 
   const z = zone === "yo" ? (loc ? { lat: loc.lat, lon: loc.lon, label: "ti" } : null) : places.find((p) => p.id === zone);
   const { data } = useJSON<StationsResponse>(z ? stationsUrl(z.lat, z.lon, radius) : null);
-  const withFuel = (data?.stations ?? []).filter((s) => s.prices[fuel] != null);
+  const [disc] = useDiscounts();
+  const withFuel = applyDiscounts(data?.stations ?? [], disc).filter((s) => s.prices[fuel] != null);
   const cheapest = [...withFuel].sort((a, b) => a.prices[fuel]! - b.prices[fuel]!)[0];
   const minPrice = cheapest?.prices[fuel] ?? null;
 

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "../Icon";
 import { EmptyState, Skeleton } from "../ui";
 import { ChargerTile } from "../ChargerBits";
+import { ShareButton } from "../ShareButton";
 import { useLocation } from "../LocationProvider";
 import { useNavigate } from "../NavigateProvider";
 import { useSettings } from "@/lib/store";
@@ -31,6 +32,7 @@ import {
   reservable,
   summarize,
   hasPrice,
+  vatPct,
   tariffLines,
   zeroOnly,
   type Charger,
@@ -134,9 +136,12 @@ export function ChargerDetail({ id }: { id: string }) {
           <button type="button" aria-label="Volver" className="icon-btn round" onClick={() => (history.length > 1 ? router.back() : router.push("/carga"))}>
             <Icon name="back" size={20} stroke={2.4} />
           </button>
-          <span className="muted b12">
-            {liveState === "loading" ? "Comprobando disponibilidad…" : lastCheck ? `Disponibilidad ${minutesAgo(lastCheck)}` : liveState === "error" ? "Sin disponibilidad en directo" : ""}
-          </span>
+          <div className="row-10">
+            <span className="muted b12">
+              {liveState === "loading" ? "Comprobando disponibilidad…" : lastCheck ? `Disponibilidad ${minutesAgo(lastCheck)}` : liveState === "error" ? "Sin disponibilidad en directo" : ""}
+            </span>
+            <ShareButton title={name} text={`${name}: punto de recarga`} />
+          </div>
         </div>
 
         <div className="row-14">
@@ -184,7 +189,7 @@ export function ChargerDetail({ id }: { id: string }) {
         {sel && car.electric && sel.compatible && (
           <section className="car-card">
             <span className="b13 soft-text">
-              Para tu {car.label} (batería {car.battery} kWh, carga máx. {kw(sel.dc ? (car.dc >= 150 ? 250 : car.dc) : car.ac)})
+              Para tu {car.label} (batería {car.battery} kWh, carga máx. {kw(sel.dc ? car.dc : car.ac)})
             </span>
             <span className="row-between end wrap-gap">
               <span className="col-0">
@@ -249,7 +254,7 @@ export function ChargerDetail({ id }: { id: string }) {
             )}
             {hasPrice(sel.conn) && (
               <span className="muted xs">
-                {sel.conn.v != null ? `Precios con IVA (${sel.conn.v} %)` : "El operador no indica IVA: precio tal cual lo publica"}
+                {vatPct(sel.conn.v) != null ? `Precios con IVA (${vatPct(sel.conn.v)} %)` : "El operador no indica IVA: precio tal cual lo publica"}
                 {sel.conn.tu ? ` · tarifa publicada el ${fmtDateTime(sel.conn.tu)}` : ""}
               </span>
             )}
@@ -288,7 +293,7 @@ export function ChargerDetail({ id }: { id: string }) {
         <p className="source">
           Fuente: Red Eléctrica de España (REVE, Registro de Vehículo Eléctrico). Datos del operador actualizados el {fmtDateTime(ch.updated)}; sincronizados el{" "}
           {fmtDateTime(data?.updated)}.{lastCheck ? ` Disponibilidad consultada el ${fmtDateTime(lastCheck)}.` : ""} Los precios con IVA se calculan a partir de la tarifa sin IVA y el IVA
-          que publica el operador; el tiempo y el coste de carga son aproximados.
+          que publica el operador (si no lo indica, se muestra el precio tal cual); el tiempo y el coste de carga son aproximados.
         </p>
       </div>
 

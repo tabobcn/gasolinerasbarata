@@ -10,9 +10,10 @@ export async function GET(req: NextRequest) {
   const items = raw
     .split(",")
     .map((p) => p.split(":"))
-    .filter(([id, m]) => /^\d+$/.test(id ?? "") && /^\d+$/.test(m ?? ""))
+    .filter(([id, m]) => /^\d{1,6}$/.test(id ?? "") && /^\d{1,5}$/.test(m ?? ""))
     .slice(0, 40);
-  const muns = [...new Set(items.map(([, m]) => m))];
+  // Como mucho 10 municipios por petición (cada uno son 2 consultas al Ministerio)
+  const muns = [...new Set(items.map(([, m]) => m))].slice(0, 10);
   const yKey = daysAgo(1).key;
   const data = await Promise.all(
     muns.map(async (m) => {
@@ -32,5 +33,10 @@ export async function GET(req: NextRequest) {
     updatedAt = d?.cur?.updatedAt ?? updatedAt;
     out.push({ station: st, yesterday: d?.yest?.find((s) => s.id === id)?.prices ?? null });
   }
-  return NextResponse.json({ updatedAt, items: out }, { headers: { "Cache-Control": "public, s-maxage=600, stale-while-revalidate=1800" } });
+  // Si el Ministerio ha fallado en algún municipio, no guardar la respuesta incompleta mucho rato
+  const failed = data.some((d) => !d.cur);
+  return NextResponse.json(
+    { updatedAt, items: out, partial: failed },
+    { headers: { "Cache-Control": failed ? "public, s-maxage=60" : "public, s-maxage=600, stale-while-revalidate=1800" } },
+  );
 }

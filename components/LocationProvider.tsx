@@ -31,6 +31,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<Status>("idle");
   const [ready, setReady] = useState(false);
   const started = useRef(false);
+  const seq = useRef(0); // cambia cada vez que el usuario elige un sitio a mano
 
   const save = (l: Loc) => {
     lastLocationStore.set({ lat: l.lat, lon: l.lon, label: l.label, at: Date.now() });
@@ -43,6 +44,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     setStatus("locating");
+    const mine = ++seq.current;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const l: Loc = {
@@ -53,9 +55,12 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
           accuracy: pos.coords.accuracy,
         };
         setGps({ lat: l.lat, lon: l.lon, accuracy: pos.coords.accuracy });
+        setStatus("ok");
+        setReady(true);
+        // Si mientras tanto ha buscado un sitio a mano, no se lo cambiamos
+        if (mine !== seq.current) return;
         setLoc(l);
         save(l);
-        setStatus("ok");
         setReady(true);
       },
       (err) => {
@@ -67,6 +72,7 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setPlace = useCallback((p: { lat: number; lon: number; label: string }) => {
+    seq.current++;
     const l: Loc = { ...p, source: "search" };
     setLoc(l);
     save(l);

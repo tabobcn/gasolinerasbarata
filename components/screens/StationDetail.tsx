@@ -18,6 +18,7 @@ import { useDiscounts } from "@/lib/discountStore";
 import { discountFor, PROGRAMS } from "@/lib/discounts";
 import { activeOffers, fmtDay } from "@/lib/offers";
 import { knownBrand } from "@/lib/brands";
+import { ShareButton } from "../ShareButton";
 
 const WEEKDAYS = ["domingos", "lunes", "martes", "miércoles", "jueves", "viernes", "sábados"];
 
@@ -83,15 +84,18 @@ export function StationDetail({ id, m }: { id: string; m: string | null }) {
             <Icon name="back" size={20} stroke={2.4} />
           </button>
           {st && (
-            <button
-              type="button"
-              aria-label={isFav ? "Quitar de favoritas" : "Guardar en favoritas"}
-              aria-pressed={isFav}
-              className={`icon-btn round${isFav ? " fav-on" : ""}`}
-              onClick={toggleFav}
-            >
-              <Icon name="star" size={22} fill={isFav ? "currentColor" : "none"} />
-            </button>
+            <div className="row-8">
+              <ShareButton title={st.name} text={`${st.name} (${st.town || st.mun}): mira sus precios`} />
+              <button
+                type="button"
+                aria-label={isFav ? "Quitar de favoritas" : "Guardar en favoritas"}
+                aria-pressed={isFav}
+                className={`icon-btn round${isFav ? " fav-on" : ""}`}
+                onClick={toggleFav}
+              >
+                <Icon name="star" size={22} fill={isFav ? "currentColor" : "none"} />
+              </button>
+            </div>
           )}
         </div>
 

@@ -29,6 +29,7 @@ export function PlaceSearch({
     const term = q.trim();
     if (term.length < 3) {
       setResults([]);
+      setLoading(false);
       setError(null);
       return;
     }

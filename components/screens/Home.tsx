@@ -60,6 +60,7 @@ export function Home() {
   return (
     <div className="screen with-nav">
       <div className="stack-16 pad-x top">
+        <h1 className="sr-only">Gasolineras baratas cerca de ti</h1>
         <div className="row-between">
           <button type="button" className="place-btn" onClick={() => setSheet(true)}>
             <span className="muted b13">
@@ -133,9 +134,11 @@ export function Home() {
             title={`Sin ${fuelByKey(fuel)?.label.toLowerCase()} en ${settings.radius} km`}
             text="Prueba con otro combustible o amplía el radio de búsqueda."
           >
-            <button type="button" className="btn soft" onClick={() => setSettings((s) => ({ ...s, radius: Math.min(25, s.radius * 2) }))}>
-              Ampliar a {Math.min(25, settings.radius * 2)} km
-            </button>
+            {settings.radius < 25 && (
+              <button type="button" className="btn soft" onClick={() => setSettings((s) => ({ ...s, radius: Math.min(25, s.radius * 2) }))}>
+                Ampliar a {Math.min(25, settings.radius * 2)} km
+              </button>
+            )}
           </EmptyState>
         )}
 

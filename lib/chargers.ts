@@ -132,11 +132,13 @@ export function compatible(c: Conn, car: Car): boolean {
 export function effectiveKw(c: Conn, car: Car): number {
   const charger = c.kw ?? (isDC(c) ? 50 : 3.7);
   if (!car.electric) return charger;
-  const carMax = isDC(c) ? (car.dc >= 150 ? 250 : car.dc) : car.ac;
+  const carMax = isDC(c) ? car.dc : car.ac;
   return Math.max(1, Math.min(charger, carMax || charger));
 }
 
-const vatFactor = (c: Conn) => 1 + (c.v ?? 0) / 100;
+/** Algunos operadores mandan el IVA como 0.21 en vez de 21 */
+export const vatPct = (v: number | null | undefined) => (v != null && v > 0 && v < 1 ? Math.round(v * 10000) / 100 : v ?? null);
+const vatFactor = (c: Conn) => 1 + (vatPct(c.v) ?? 0) / 100;
 
 /** €/kWh con IVA (la tarifa de REVE viene sin IVA) */
 export function priceKwh(c: Conn): number | null {
@@ -192,6 +194,10 @@ export function availability(evses: Evse[], now = Date.now()): Avail {
       if (e.op === false) a.down++;
     }
   }
+  if (a.live && a.free === 0 && a.busy === 0 && a.down < a.total) {
+    // Hay datos en directo de algunos puntos pero ninguno libre ni ocupado: lo decide el estado operativo
+    a.live = false;
+  }
   return a;
 }
 
@@ -199,8 +205,7 @@ export function availText(a: Avail): { text: string; tone: "green" | "amber" | "
   if (!a.total) return { text: "Sin puntos", tone: "muted" };
   if (a.live) {
     if (a.free > 0) return { text: `${a.free} de ${a.total} libre${a.total === 1 ? "" : "s"}`, tone: "green" };
-    if (a.down === a.total) return { text: "Fuera de servicio", tone: "red" };
-    return { text: "Ocupado ahora", tone: "amber" };
+    if (a.busy > 0) return { text: a.busy === a.total ? "Ocupado ahora" : `${a.busy} de ${a.total} ocupados`, tone: "amber" };
   }
   if (a.known) {
     const ok = a.total - a.down;
@@ -451,11 +456,20 @@ const euro = (n: number, d = 2) => n.toFixed(d).replace(".", ",");
 /** "0,39 €/kWh" con IVA */
 export const fmtKwhPrice = (p: number | null) => (p == null ? "—" : `${euro(p)} €/kWh`);
 
+const madridToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid" }).format(new Date());
+
+const fmtDay = (iso: string) => iso.split("-").reverse().join("/");
+
 function restrictionText(r: TariffRestrictions | null | undefined): string {
   if (!r) return "";
   const out: string[] = [];
   const g = (k: string) => r[k] as string | number | string[] | undefined;
-  if (g("start_time") || g("end_time")) out.push(`de ${g("start_time") ?? "00:00"} a ${g("end_time") ?? "24:00"}`);
+  const st = (g("start_time") as string | undefined) ?? "00:00";
+  const et = (g("end_time") as string | undefined) ?? "00:00";
+  const wholeDay = st === "00:00" && ["00:00", "23:59", "24:00"].includes(et);
+  if ((g("start_time") || g("end_time")) && !wholeDay) out.push(`de ${st} a ${et === "00:00" ? "24:00" : et}`);
+  const sd = g("start_date") as string | undefined;
+  if (sd && sd > madridToday()) out.push(`desde el ${fmtDay(sd)}`);
   const dow = g("day_of_week");
   if (Array.isArray(dow) && dow.length && dow.length < 7) {
     const map: Record<string, string> = { MONDAY: "L", TUESDAY: "M", WEDNESDAY: "X", THURSDAY: "J", FRIDAY: "V", SATURDAY: "S", SUNDAY: "D" };
@@ -482,8 +496,12 @@ function restrictionText(r: TariffRestrictions | null | undefined): string {
 /** Desglose de la tarifa tal cual la publica el operador en REVE, con IVA */
 export function tariffLines(c: Conn): { label: string; value: string; note: string }[] {
   const lines: { label: string; value: string; note: string }[] = [];
+  const today = madridToday();
   for (const el of c.el ?? []) {
     const r = el.restrictions ?? {};
+    // Fuera lo caducado; lo que empieza más adelante se enseña con su fecha
+    const ed = r["end_date"] as string | undefined;
+    if (ed && today >= ed) continue;
     const resv = r["reservation"] as string | undefined;
     const note = restrictionText(r);
     for (const pc of el.price_components ?? []) {
@@ -491,8 +509,9 @@ export function tariffLines(c: Conn): { label: string; value: string; note: stri
       if (!Number.isFinite(base)) continue;
       // Los componentes a 0 € no aportan nada y confunden
       if (base === 0) continue;
-      const vat = pc.vat != null && pc.vat !== "" ? Number(String(pc.vat).replace(",", ".")) : 0;
-      const p = base * (1 + (Number.isFinite(vat) ? vat : 0) / 100);
+      const rawVat = pc.vat != null && pc.vat !== "" ? Number(String(pc.vat).replace(",", ".")) : 0;
+      const vat = vatPct(Number.isFinite(rawVat) ? rawVat : 0) ?? 0;
+      const p = base * (1 + vat / 100);
       if (resv) {
         // Lo que cobran por reservar (o si reservas y no llegas a cargar)
         const label = resv === "RESERVATION_EXPIRES" ? "Si reservas y no llegas a cargar" : "Por reservar";

@@ -68,3 +68,8 @@ export function titleCase(s: string): string {
     .replace(/\bN-(\w)/g, (m) => m.toUpperCase())
     .replace(/\b([a-z]{1,3}-\d{1,4})\b/gi, (m) => m.toUpperCase());
 }
+
+/** Fecha de hoy en España (AAAA-MM-DD); new Date().toISOString() da la de UTC y falla de 00:00 a 02:00 */
+export function madridDate(d = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid" }).format(d);
+}

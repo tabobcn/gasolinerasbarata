@@ -23,8 +23,8 @@ export function bestValue(stations: Station[], fuel: FuelKey, tankL: number) {
   for (const s of stations) {
     const p = s.prices[fuel];
     if (p == null) continue;
-    const avg = average(stations, fuel, s.id);
-    if (avg == null) continue;
+    // Si es la única de la zona, no hay media con la que comparar: se compara consigo misma
+    const avg = average(stations, fuel, s.id) ?? p;
     const sv = netSavings(p, avg, tankL, (s.dist ?? 0) * 2);
     if (!best || sv > best.savings) best = { station: s, avg, savings: sv };
   }

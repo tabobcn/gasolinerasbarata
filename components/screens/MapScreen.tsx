@@ -277,6 +277,7 @@ export function MapScreen() {
   useEffect(() => {
     if (gps && mapRef.current && loc?.source === "gps" && !new URLSearchParams(window.location.search).has("lat")) {
       mapRef.current.jumpTo({ center: [gps.lon, gps.lat] });
+      setCenter((c) => (c && haversineKm(c.lat, c.lon, gps.lat, gps.lon) < 0.3 ? c : { lat: gps.lat, lon: gps.lon }));
     }
   }, [gps, loc?.source]);
 
@@ -487,7 +488,7 @@ export function MapScreen() {
                 className={`chip${f.key === fuel ? " on" : ""}`}
                 aria-pressed={f.key === fuel}
                 onClick={() => {
-                  setSettings((s) => ({ ...s, fuel: f.key }));
+                  setSettings((s) => ({ ...s, fuel: f.key, fuels: s.fuels.includes(f.key) ? s.fuels : [...s.fuels, f.key] }));
                   setSheet(null);
                 }}
               >

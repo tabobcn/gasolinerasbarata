@@ -14,7 +14,9 @@ function parsePoint(v: string | null): [number, number] | null {
   if (!v) return null;
   const [lat, lon] = v.split(",").map(Number);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  return [lat, lon];
+  if (lat < 27 || lat > 44.5 || lon < -18.5 || lon > 4.6) return null; // solo España
+  const r3 = (n: number) => Math.round(n * 1000) / 1000;
+  return [r3(lat), r3(lon)];
 }
 
 /** Gasolineras a lo largo de una ruta en coche, ordenadas por ahorro neto (contando el desvío). */

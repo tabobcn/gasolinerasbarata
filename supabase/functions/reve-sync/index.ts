@@ -1,10 +1,11 @@
 // Sincroniza los puntos de recarga de REVE (Red Eléctrica de España) en Supabase.
 // Lo lanza pg_cron cada pocos minutos. Respeta los límites de REVE: 1.000 peticiones/hora por clave
-// (la sincronización usa como máximo 600 y el estado en directo 300) y 5 peticiones por URL y hora.
+// (ventana deslizante de 1 hora: la sincronización usa como máximo 650 y el estado en directo 300)
+// y 5 peticiones por URL y hora (si algo falla, se espera de 15 min a 6 h antes de reintentar).
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const BASE = "https://www.mapareve.es/api/external/v1";
-const MAX_REQ_PER_HOUR = 600;
+const MAX_REQ_PER_HOUR = 650;
 const TIME_BUDGET_MS = 100_000;
 const PAGE = 100;
 
@@ -21,6 +22,10 @@ type State = {
   phase: string | null;
   pass_started: string | null;
   last_error: string | null;
+  errors?: number;
+  retry_at?: string | null;
+  last_ok_at?: string | null;
+  full_at?: string | null;
   updated_at?: string;
 };
 
@@ -31,6 +36,10 @@ const num = (v: unknown): number | null => {
 };
 // deno-lint-ignore no-explicit-any
 const arr = (v: unknown): any[] => (Array.isArray(v) ? v : []);
+/** Algunos operadores mandan el IVA como 0.21 en vez de 21 */
+const normVat = (v: number | null) => (v != null && v > 0 && v < 1 ? Math.round(v * 10000) / 100 : v);
+/** Fecha de hoy en España (AAAA-MM-DD), para la validez de las tarifas */
+const madridToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid" }).format(new Date());
 
 async function getState(resource: string): Promise<State> {
   const { data } = await supa.from("ev_sync_state").select("*").eq("resource", resource).maybeSingle();
@@ -43,8 +52,18 @@ async function getState(resource: string): Promise<State> {
       phase: "full",
       pass_started: null,
       last_error: null,
+      errors: 0,
+      retry_at: null,
     }
   );
+}
+
+/** Marca un fallo y espera antes de volver a pedir esa URL: 15 min, 30, 60… hasta 6 h */
+function fail(s: State, msg: string) {
+  s.errors = (s.errors ?? 0) + 1;
+  const mins = Math.min(360, 15 * 2 ** (s.errors - 1));
+  s.retry_at = new Date(Date.now() + mins * 60_000).toISOString();
+  s.last_error = msg.slice(0, 300);
 }
 
 async function saveState(s: State) {
@@ -59,7 +78,7 @@ async function takeBudget(): Promise<boolean> {
 }
 
 async function exhaustBudget() {
-  await supa.from("ev_sync_state").update({ next_page: MAX_REQ_PER_HOUR }).eq("resource", "_budget");
+  await supa.rpc("ev_exhaust_budget", { p_key: "_budget", p_max: MAX_REQ_PER_HOUR });
 }
 
 async function fetchPage(path: string, params: Record<string, string | number>) {
@@ -163,9 +182,33 @@ async function storeStatus(items: any[]) {
   return rows.length;
 }
 
+const DAY_KEYS = new Set(["start_time", "end_time", "start_date", "end_date", "day_of_week"]);
+
+// deno-lint-ignore no-explicit-any
+function dateValid(r: any, today: string) {
+  if (!r) return true;
+  if (r.start_date && today < r.start_date) return false;
+  if (r.end_date && today >= r.end_date) return false; // end_date no incluido (OCPI)
+  return true;
+}
+
+/** Restricciones que en la práctica no restringen nada (todo el día, toda la semana, fechas vigentes) */
+// deno-lint-ignore no-explicit-any
+function effectivelyUnrestricted(r: any) {
+  if (!r) return true;
+  const keys = Object.keys(r).filter((k) => r[k] != null && r[k] !== "" && !(Array.isArray(r[k]) && !r[k].length));
+  if (!keys.every((k) => DAY_KEYS.has(k))) return false;
+  const st = r.start_time ?? "00:00";
+  const et = r.end_time ?? "00:00";
+  const wholeDay = st === "00:00" && ["00:00", "23:59", "24:00"].includes(et);
+  const allWeek = !Array.isArray(r.day_of_week) || r.day_of_week.length === 0 || r.day_of_week.length >= 7;
+  return wholeDay && allWeek;
+}
+
 // deno-lint-ignore no-explicit-any
 function summarizeTariff(x: any) {
   const now = Date.now();
+  const today = madridToday();
   const list = arr(x.tariffs);
   const t =
     list.find(
@@ -178,29 +221,30 @@ function summarizeTariff(x: any) {
   let flat: number | null = null;
   let vat: number | null = null;
   const elements = arr(t?.elements);
-  for (const el of elements) {
-    const restricted = el.restrictions && Object.keys(el.restrictions).length > 0;
-    if (restricted) continue;
+  // Solo cuenta lo vigente hoy (fuera elementos caducados o futuros)
+  const current = elements.filter((el) => dateValid(el.restrictions, today));
+  for (const el of current) {
+    if (!effectivelyUnrestricted(el.restrictions)) continue;
     for (const pc of arr(el.price_components)) {
       const p = num(pc.price);
       if (p == null) continue;
       if (pc.type === "ENERGY" && energy == null) {
         energy = p;
-        vat = num(pc.vat) ?? vat;
+        vat = normVat(num(pc.vat)) ?? vat;
       } else if (pc.type === "TIME" && timeH == null) timeH = p;
       else if (pc.type === "FLAT" && flat == null) flat = p;
     }
   }
   if (energy == null) {
-    const all = elements.flatMap((el) => arr(el.price_components)).filter((pc) => pc.type === "ENERGY" && num(pc.price) != null);
+    const all = current.flatMap((el) => arr(el.price_components)).filter((pc) => pc.type === "ENERGY" && num(pc.price) != null);
     if (all.length) {
       energy = Math.min(...all.map((p) => num(p.price)!));
-      vat = num(all[0].vat);
+      vat = normVat(num(all[0].vat));
     }
   }
   if (vat == null) {
-    const any = elements.flatMap((el) => arr(el.price_components)).find((pc) => num(pc.vat) != null);
-    vat = any ? num(any.vat) : null;
+    const any = current.flatMap((el) => arr(el.price_components)).find((pc) => num(pc.vat) != null);
+    vat = any ? normVat(num(any.vat)) : null;
   }
   return {
     connector_id: x.connector_id,
@@ -236,10 +280,16 @@ async function run() {
   const report: Record<string, unknown>[] = [];
   for (const r of RESOURCES) {
     const s = await getState(r.name);
+    if (s.retry_at && Date.parse(s.retry_at) > Date.now()) {
+      report.push({ resource: r.name, stop: `esperando hasta ${s.retry_at}` });
+      continue;
+    }
     if (s.phase === "idle") {
+      // Una vez al día, pasada completa de ubicaciones para detectar puntos dados de baja
+      const fullDue = r.name === "locations" && (!s.full_at || Date.now() - Date.parse(s.full_at) > 24 * 3600_000);
       const last = s.updated_at ? Date.parse(s.updated_at) : 0;
-      if (Date.now() - last < r.everyMin * 60_000) continue;
-      s.phase = "incremental";
+      if (!fullDue && Date.now() - last < r.everyMin * 60_000) continue;
+      s.phase = fullDue ? "full" : "incremental";
       s.next_page = 1;
       s.total_pages = null;
       s.pass_started = new Date().toISOString();
@@ -250,6 +300,11 @@ async function run() {
     let rows = 0;
     while (Date.now() - started < TIME_BUDGET_MS) {
       if (s.total_pages != null && s.next_page > s.total_pages) {
+        if (s.phase === "full" && r.name === "locations") {
+          s.full_at = s.pass_started;
+          const { data: removed } = await supa.rpc("ev_cleanup", {});
+          report.push({ resource: r.name, removed });
+        }
         s.phase = "idle";
         s.cursor_date = s.pass_started;
         s.pass_started = null;
@@ -265,27 +320,46 @@ async function run() {
       }
       const params: Record<string, string | number> = { page: s.next_page, limit: PAGE };
       if (s.phase === "incremental" && s.cursor_date) params.date_from = s.cursor_date;
-      const res = await fetchPage(r.path, params);
+      let res: Awaited<ReturnType<typeof fetchPage>>;
+      try {
+        res = await fetchPage(r.path, params);
+      } catch (e) {
+        fail(s, `Sin respuesta de REVE: ${(e as Error).message}`);
+        await saveState(s);
+        report.push({ resource: r.name, pages, rows, stop: s.last_error });
+        break;
+      }
       if (res.status === 429) {
         await exhaustBudget();
-        s.last_error = "HTTP 429 (límite de REVE)";
+        fail(s, "HTTP 429 (límite de REVE)");
         await saveState(s);
         report.push({ resource: r.name, pages, rows, stop: "429" });
         return report;
       }
       if (res.status !== 200 || !Array.isArray(res.data)) {
-        s.last_error = `HTTP ${res.status}: ${JSON.stringify(res.data)?.slice(0, 200)}`;
+        fail(s, `HTTP ${res.status}: ${JSON.stringify(res.data)?.slice(0, 200)}`);
         await saveState(s);
         report.push({ resource: r.name, pages, rows, stop: s.last_error });
         break;
       }
       if (res.totalPages != null) s.total_pages = res.totalPages;
       const data = res.data as unknown[];
-      if (data.length) rows += await r.store(data);
+      try {
+        if (data.length) rows += await r.store(data);
+      } catch (e) {
+        fail(s, `Error guardando: ${(e as Error).message}`);
+        await saveState(s);
+        report.push({ resource: r.name, pages, rows, stop: s.last_error });
+        break;
+      }
       pages += 1;
       if (!data.length || (res.totalPages == null && data.length < PAGE)) s.total_pages = s.next_page;
       if (res.totalCount === 0) s.total_pages = 0;
       s.next_page += 1;
+      s.errors = 0;
+      s.retry_at = null;
+      s.last_error = null;
+      s.last_ok_at = new Date().toISOString();
       await saveState(s);
     }
     report.push({ resource: r.name, phase: s.phase, pages, rows, next_page: s.next_page, total_pages: s.total_pages });

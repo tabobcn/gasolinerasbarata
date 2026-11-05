@@ -7,8 +7,9 @@ import { stationHref } from "./StationRow";
 import { Icon } from "./Icon";
 
 export function AlertsBanner() {
-  const { loc } = useLocation();
-  const matches = useAlertMatches(loc);
+  const { loc, gps } = useLocation();
+  const here = gps ?? (loc && (loc.source === "search" || loc.source === "url") ? loc : null);
+  const matches = useAlertMatches(here);
   if (!matches.length) return null;
   return (
     <div className="stack-8" aria-live="polite">

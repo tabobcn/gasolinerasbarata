@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const r = await edge<LiveResponse>("reve-live", `location=${encodeURIComponent(id)}`);
     const body: LiveResponse = { checked: r.checked, evses: r.evses };
     return NextResponse.json(body, { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" } });
-  } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 502 });
+  } catch {
+    return NextResponse.json({ error: "Ahora mismo no podemos consultar la disponibilidad" }, { status: 502 });
   }
 }

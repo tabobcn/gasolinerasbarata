@@ -80,6 +80,7 @@ export function Charge() {
   return (
     <div className="screen with-nav">
       <div className="stack-14 pad-x top">
+        <h1 className="sr-only">Puntos de recarga cerca de ti</h1>
         <div className="row-between">
           <button type="button" className="place-btn" onClick={() => setSheet(true)}>
             <span className="muted b13">
@@ -189,7 +190,7 @@ export function Charge() {
               >
                 Ver todos
               </button>
-            ) : (
+            ) : settings.radius >= 25 ? null : (
               <button type="button" className="btn soft" onClick={() => settingsStore.set((s) => ({ ...s, radius: Math.min(25, s.radius * 2) }))}>
                 Ampliar a {Math.min(25, settings.radius * 2)} km
               </button>
@@ -290,7 +291,7 @@ export function Charge() {
 
         {data && (
           <p className="source">
-            Fuente: Red Eléctrica de España (REVE, Registro de Vehículo Eléctrico). Datos actualizados el {fmtDateTime(data.updated)}. Precios con IVA calculados a partir de la tarifa
+            Fuente: Red Eléctrica de España (REVE, Registro de Vehículo Eléctrico). Datos actualizados el {fmtDateTime(data.updated)}. Precios con IVA (cuando el operador lo indica) calculados a partir de la tarifa
             que publica cada operador; el tiempo de carga es aproximado. Distancias en línea recta.
           </p>
         )}

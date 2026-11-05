@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { fuelByKey } from "./fuels";
-import { fmtKm, fmtPrice } from "./format";
+import { fmtKm, fmtPrice, madridDate } from "./format";
 import { getJSON, stationsUrl } from "./useJSON";
-import { alertsStore, favoritesStore, placesStore, type PriceAlert, type SavedPlace } from "./store";
+import { alertsStore, createPersisted, favoritesStore, placesStore, type PriceAlert, type SavedPlace } from "./store";
 import type { Prices, Station, StationsResponse } from "./types";
 import { discountsStore } from "./discountStore";
 import { applyDiscounts } from "./discounts";
@@ -49,6 +49,9 @@ export async function evaluateAlert(alert: PriceAlert, places: SavedPlace[], her
   };
 }
 
+/** Avisos de "tu favorita ha bajado" ya enviados (para no repetirlos) */
+const favNotified = createPersisted<string[]>("gc.favNotified", []);
+
 function notify(m: AlertMatch) {
   try {
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
@@ -81,9 +84,10 @@ export function useAlertMatches(here: { lat: number; lon: number } | null) {
     let alive = true;
     (async () => {
       const out: AlertMatch[] = [];
-      const today = new Date().toISOString().slice(0, 10);
+      const today = madridDate();
       for (const a of alerts) {
         const st = await evaluateAlert(a, places, here).catch(() => null);
+        if (!alive) return; // ha cambiado la ubicación: esta comprobación ya no vale
         if (st?.hit && st.cheapest && st.cheapestPrice != null) {
           const f = fuelByKey(a.fuel)?.label ?? "";
           const key = `${today}:${a.id}:${st.cheapest.id}:${st.cheapestPrice}`;
@@ -106,20 +110,30 @@ export function useAlertMatches(here: { lat: number; lon: number } | null) {
       if (wantsFav.length && favs.length) {
         const items = favs.map((f) => `${f.id}:${f.m}`).join(",");
         const res = await getJSON<{ items: { station: Station; yesterday: Prices | null }[] }>(`/api/stations/lookup?items=${items}`).catch(() => null);
+        if (!alive) return;
+        const fuels = [...new Set(wantsFav.map((a) => a.fuel))];
+        const sent = favNotified.get();
+        const newlySent: string[] = [];
         for (const it of res?.items ?? []) {
-          for (const a of wantsFav) {
-            const now = it.station.prices[a.fuel];
-            const before = it.yesterday?.[a.fuel];
+          for (const fuel of fuels) {
+            const now = it.station.prices[fuel];
+            const before = it.yesterday?.[fuel];
             if (now != null && before != null && before - now >= 0.03) {
-              out.push({
-                key: `${today}:fav:${it.station.id}:${a.fuel}`,
+              const m: AlertMatch = {
+                key: `${today}:fav:${it.station.id}:${fuel}`,
                 station: it.station,
                 title: `${it.station.name} ha bajado ${Math.round((before - now) * 100)} cts`,
-                body: `${fuelByKey(a.fuel)?.label} a ${fmtPrice(now)} € (ayer ${fmtPrice(before)} €)`,
-              });
+                body: `${fuelByKey(fuel)?.label} a ${fmtPrice(now)} € (ayer ${fmtPrice(before)} €)`,
+              };
+              out.push(m);
+              if (!sent.includes(m.key)) {
+                notify(m);
+                newlySent.push(m.key);
+              }
             }
           }
         }
+        if (newlySent.length) favNotified.set((l) => [...l, ...newlySent].slice(-50));
       }
       if (alive) setMatches(out);
     })();

@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   const m = sp.get("m");
   const fuel = sp.get("fuel");
   const days = Math.min(30, Math.max(3, Number(sp.get("days")) || 14));
-  if (!/^\d+$/.test(id) || !m || !/^\d+$/.test(m) || !isFuelKey(fuel)) {
+  if (!/^\d{1,6}$/.test(id) || !m || !/^\d{1,5}$/.test(m) || !isFuelKey(fuel)) {
     return NextResponse.json({ error: "Parámetros no válidos" }, { status: 400 });
   }
   const past = Array.from({ length: days - 1 }, (_, i) => daysAgo(days - 1 - i)); // del más antiguo a ayer
@@ -19,13 +19,16 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     Promise.all(
       past.map((d) =>
         municipalityHistory(m, d.key)
-          .then((list) => ({ date: d.iso, price: list.find((s) => s.id === id)?.prices[fuel] ?? null }))
-          .catch(() => ({ date: d.iso, price: null })),
+          .then((list) => ({ date: d.iso, price: list.find((s) => s.id === id)?.prices[fuel] ?? null, ok: true }))
+          .catch(() => ({ date: d.iso, price: null, ok: false })),
       ),
     ),
     municipalityStations(m).catch(() => null),
   ]);
   const todayPrice = today?.stations.find((s) => s.id === id)?.prices[fuel] ?? null;
-  const body: HistoryResponse = { fuel, points: [...hist, { date: daysAgo(0).iso, price: todayPrice }] };
-  return NextResponse.json(body, { headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600" } });
+  const failed = !today || hist.some((h) => !h.ok);
+  const body: HistoryResponse = { fuel, points: [...hist.map(({ date, price }) => ({ date, price })), { date: daysAgo(0).iso, price: todayPrice }] };
+  return NextResponse.json(body, {
+    headers: { "Cache-Control": failed ? "public, s-maxage=120" : "public, s-maxage=1800, stale-while-revalidate=3600" },
+  });
 }

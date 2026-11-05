@@ -24,29 +24,44 @@ export async function getJSON<T>(url: string, force = false): Promise<T> {
 }
 
 export function useJSON<T>(url: string | null) {
-  const [state, setState] = useState<{ data: T | null; error: string | null; loading: boolean }>(() => {
+  const [state, setState] = useState<{ url: string | null; data: T | null; error: string | null; loading: boolean }>(() => {
     const hit = url ? cache.get(url) : undefined;
-    return { data: (hit?.data as T) ?? null, error: null, loading: !!url && !hit };
+    return { url, data: (hit?.data as T) ?? null, error: null, loading: !!url && !hit };
   });
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
     if (!url) {
-      setState({ data: null, error: null, loading: false });
+      setState({ url, data: null, error: null, loading: false });
       return;
     }
     let alive = true;
-    setState((s) => ({ ...s, loading: true, error: null }));
+    setState((s) => (s.url === url ? { ...s, loading: true, error: null } : { url, data: (cache.get(url)?.data as T) ?? null, error: null, loading: true }));
     getJSON<T>(url, tick > 0)
-      .then((data) => alive && setState({ data, error: null, loading: false }))
-      .catch((e: Error) => alive && setState((s) => ({ data: s.data, error: e.message, loading: false })));
+      .then((data) => alive && setState({ url, data, error: null, loading: false }))
+      .catch((e: Error) => alive && setState((s) => ({ url, data: s.url === url ? s.data : null, error: e.message, loading: false })));
     return () => {
       alive = false;
     };
   }, [url, tick]);
 
+  // Al volver a la app después de un rato (app instalada abierta en segundo plano), refresca lo caducado
+  useEffect(() => {
+    if (!url) return;
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      const hit = cache.get(url);
+      if (!hit || Date.now() - hit.at > TTL) setTick((t) => t + 1);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [url]);
+
   const reload = useCallback(() => setTick((t) => t + 1), []);
-  return { ...state, reload };
+  // Nunca devolver los datos de otra URL (p. ej. los de la ciudad anterior mientras carga la nueva)
+  if (state.url === url) return { data: state.data, error: state.error, loading: state.loading, reload };
+  const hit = url ? cache.get(url) : undefined;
+  return { data: (hit?.data as T) ?? null, error: null, loading: !!url && !hit, reload };
 }
 
 /** Redondea a ~100 m para que la caché (navegador y CDN) se aproveche mejor */

@@ -24,20 +24,27 @@ const num = (v: string | undefined) => {
   return Number.isFinite(n) && n > 0 ? n : null;
 };
 
-/** "04/11/2026 2:14:32" (hora peninsular) → ISO */
+/** Desfase de Madrid respecto a UTC (en horas) en un instante dado */
+function madridOffsetH(ms: number): number {
+  const tz = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Madrid", timeZoneName: "shortOffset" })
+    .formatToParts(new Date(ms))
+    .find((p) => p.type === "timeZoneName")?.value;
+  const off = tz?.match(/GMT([+-]\d+)/)?.[1];
+  return off ? Number(off) : 1;
+}
+
+/** "04/11/2026 2:14:32" (hora peninsular) → ISO. Correcto también en los días de cambio de hora. */
 export function madridDateToISO(fecha: string | undefined): string | null {
   if (!fecha) return null;
   const m = fecha.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})/);
   if (!m) return null;
   const [, d, mo, y, h, mi, s] = m.map(Number) as unknown as number[];
   const asUTC = Date.UTC(y, mo - 1, d, h, mi, s);
-  // offset de Madrid en ese instante
-  const tzName = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Madrid", timeZoneName: "shortOffset" })
-    .formatToParts(new Date(asUTC))
-    .find((p) => p.type === "timeZoneName")?.value;
-  const off = tzName?.match(/GMT([+-]\d+)/)?.[1];
-  const offsetH = off ? Number(off) : 1;
-  return new Date(asUTC - offsetH * 3600 * 1000).toISOString();
+  const first = madridOffsetH(asUTC);
+  let t = asUTC - first * 3600 * 1000;
+  const second = madridOffsetH(t);
+  if (second !== first) t = asUTC - second * 3600 * 1000;
+  return new Date(t).toISOString();
 }
 
 export function normalize(r: RawStation): Station | null {
@@ -150,12 +157,13 @@ export async function stationsInArea(area: BBox): Promise<Dataset> {
   return { updatedAt, stations: ok.flatMap((d) => d.stations) };
 }
 
-/** Fecha en formato dd-mm-aaaa, n días atrás (hora de Madrid) */
+/** Fecha en formato dd-mm-aaaa, n días naturales atrás (hora de Madrid, sin fallos en los cambios de hora) */
 export function daysAgo(n: number): { key: string; iso: string } {
-  const now = new Date(Date.now() - n * 86400000);
-  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", day: "2-digit", month: "2-digit", year: "numeric" }).formatToParts(now);
-  const d = parts.find((p) => p.type === "day")!.value;
-  const m = parts.find((p) => p.type === "month")!.value;
-  const y = parts.find((p) => p.type === "year")!.value;
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", day: "2-digit", month: "2-digit", year: "numeric" }).formatToParts(new Date());
+  const get = (t: string) => Number(parts.find((p) => p.type === t)!.value);
+  const dt = new Date(Date.UTC(get("year"), get("month") - 1, get("day") - n));
+  const d = String(dt.getUTCDate()).padStart(2, "0");
+  const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const y = dt.getUTCFullYear();
   return { key: `${d}-${m}-${y}`, iso: `${y}-${m}-${d}` };
 }

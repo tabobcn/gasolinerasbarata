@@ -103,7 +103,7 @@ export function Favorites() {
                     <span className="col-2 grow min0">
                       <span className="b15 ellipsis">{f.name}</span>
                       <span className={`b12 ${change != null && change < -0.0005 ? "green" : change != null && change > 0.0005 ? "red" : "muted"}`}>
-                        {now == null ? `No vende ${fuelByKey(fuel)?.label.toLowerCase()}` : changeTxt}
+                        {!it ? "Sin datos ahora mismo" : now == null ? `No vende ${fuelByKey(fuel)?.label.toLowerCase()}` : changeTxt}
                       </span>
                     </span>
                     <span className="col-0 end">

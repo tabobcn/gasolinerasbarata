@@ -1,3 +1,5 @@
+import { madridDate } from "./format";
+
 /**
  * Ofertas activas de las marcas. NO hay fuente oficial de promociones:
  * esta lista se mantiene A MANO. Cada oferta desaparece sola al pasar su fecha "until".
@@ -28,7 +30,7 @@ export const OFFERS: Offer[] = [
 ];
 
 export function activeOffers(today = new Date()): Offer[] {
-  const iso = today.toISOString().slice(0, 10);
+  const iso = madridDate(today);
   return OFFERS.filter((o) => o.until >= iso);
 }
 
