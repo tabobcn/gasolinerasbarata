@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { fmtKm } from "@/lib/format";
-import { availText, chargerName, cpoStyle, type Avail, type Car, type Charger, type Summary } from "@/lib/chargers";
+import { availText, chargerName, cpoStyle, displayGroup, type Avail, type Car, type Charger, type Summary } from "@/lib/chargers";
 
 const euro = (n: number) => n.toFixed(2).replace(".", ",");
 
@@ -38,9 +38,10 @@ export function AvailBadge({ a, small }: { a: Avail; small?: boolean }) {
 
 /** Fila de la lista de cargadores */
 export function ChargerRow({ s, car }: { s: Summary; car: Car }) {
-  const anyPrice = s.groups.map((g) => g.price).filter((p): p is number => p != null);
-  const price = s.best?.price ?? (anyPrice.length ? Math.min(...anyPrice) : null);
-  const cost = car.electric ? s.best?.fill.cost ?? null : null;
+  const pg = displayGroup(s, car);
+  const price = pg?.price ?? null;
+  const doubtful = pg?.doubtful ?? false;
+  const cost = car.electric && !doubtful ? s.best?.fill.cost ?? null : null;
   const t = availText(s.avail);
   return (
     <Link href={`/cargador/${s.ch.id}`} className={`row-card${car.electric && !s.compatible ? " dim" : ""}`}>
@@ -56,7 +57,7 @@ export function ChargerRow({ s, car }: { s: Summary; car: Car }) {
       </span>
       <span className="col-2 end">
         <span className={`price-sm${price != null ? " blue-ink" : " muted"}`}>{price != null ? `${euro(price)} €` : "—"}</span>
-        <span className="muted b12 nowrap">{cost != null ? `${euro(cost)} € lleno` : price != null ? "por kWh" : "sin precio"}</span>
+        <span className="muted b12 nowrap">{doubtful ? "a confirmar" : cost != null ? `${euro(cost)} € lleno` : price != null ? "por kWh" : "sin precio"}</span>
       </span>
     </Link>
   );

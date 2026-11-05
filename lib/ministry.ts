@@ -167,3 +167,8 @@ export function daysAgo(n: number): { key: string; iso: string } {
   const y = dt.getUTCFullYear();
   return { key: `${d}-${m}-${y}`, iso: `${y}-${m}-${d}` };
 }
+
+/** Convierte una respuesta del Ministerio (ya descargada) en el formato de la app */
+export function normalizeList(raw: RawResponse): Dataset {
+  return toDataset(raw);
+}

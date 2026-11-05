@@ -93,6 +93,8 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       setReady(true);
       return;
     }
+    // En las páginas por ciudad (para Google) no pedimos el GPS nada más entrar
+    const seoPage = window.location.pathname.startsWith("/gasolineras");
     // 2) Última ubicación conocida mientras llega el GPS
     const last = lastLocationStore.get();
     if (last) {
@@ -100,6 +102,10 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       setReady(true);
       // si buscó un sitio a mano, lo respetamos; si era GPS, refrescamos
       if (last.label) return;
+    }
+    if (seoPage) {
+      setReady(true);
+      return;
     }
     locate();
   }, [locate]);

@@ -56,11 +56,11 @@ export function Charge() {
     // El mejor para tu coche: el más barato de llenar contando lo que gastas en ir y volver
     const ok = list.filter((s) => s.best && !s.allDown && (!car.electric || s.compatible));
     const score = (s: Summary) => s.best!.fill.cost! + (s.ch.dist ?? 0) * 2 * (EV_KWH_100KM / 100) * (s.best!.price ?? 0.4);
-    const priced = ok.filter((s) => s.best!.fill.cost != null).sort((a, b) => score(a) - score(b));
+    const priced = ok.filter((s) => s.best!.fill.cost != null && !s.best!.doubtful).sort((a, b) => score(a) - score(b));
     const hero = car.electric ? priced[0] ?? ok[0] ?? null : null;
 
     const priceOf = (s: Summary) => {
-      const ps = (car.electric ? s.groups.filter((g) => g.compatible) : s.groups).map((g) => g.price).filter((p): p is number => p != null);
+      const ps = (car.electric ? s.groups.filter((g) => g.compatible) : s.groups).filter((g) => !g.doubtful).map((g) => g.price).filter((p): p is number => p != null);
       return ps.length ? Math.min(...ps) : Infinity;
     };
     let rest = list.filter((s) => s !== hero);
@@ -69,7 +69,7 @@ export function Charge() {
   }, [data, car.electric, car.plugs.join(","), car.ac, car.dc, car.battery, onlyCompat, onlyWorking, cheapFirst]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Para comparar con gasolina: media de la gasolina 95 en la zona
-  const heroPrice = view?.hero?.best?.price ?? null;
+  const heroPrice = view?.hero?.best && !view.hero.best.doubtful ? view.hero.best.price : null;
   const fuelData = useJSON<StationsResponse>(loc && heroPrice != null ? stationsUrl(loc.lat, loc.lon, settings.radius) : null).data;
   const g95 = fuelData ? average(fuelData.stations, "g95") : null;
 
@@ -202,7 +202,7 @@ export function Charge() {
           <section className="card hero" aria-labelledby="ev-best">
             <div className="row-between">
               <span className="eyebrow blue" id="ev-best">
-                {hg.fill.cost != null ? "MEJOR PARA TU COCHE" : "EL MÁS CERCANO PARA TU COCHE"}
+                {hg.fill.cost != null && !hg.doubtful ? "MEJOR PARA TU COCHE" : "EL MÁS CERCANO PARA TU COCHE"}
               </span>
               <AvailBadge a={hero.avail} />
             </div>
@@ -224,6 +224,7 @@ export function Charge() {
             ) : (
               <span className="b15 muted">Precio no disponible en REVE</span>
             )}
+            {hg.doubtful && <span className="muted b12">Precio a confirmar en la app del operador: es demasiado bajo para ser real</span>}
             <div className="saving-box">
               Llenar del 20 al 100 %:{" "}
               <strong>

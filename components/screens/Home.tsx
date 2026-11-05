@@ -229,7 +229,10 @@ export function Home() {
 
         {data && (
           <p className="source">
-            Precios oficiales del Ministerio (Geoportal de Gasolineras), se actualizan cada media hora. Distancias en línea recta.
+            Precios oficiales del Ministerio (Geoportal de Gasolineras), se actualizan cada media hora. Distancias en línea recta.{" "}
+            <Link href="/gasolineras" className="green">
+              Precios por provincia y municipio
+            </Link>
           </p>
         )}
       </div>

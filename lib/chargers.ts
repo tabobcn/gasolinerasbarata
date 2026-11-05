@@ -101,7 +101,13 @@ export function plugKind(standard: string | null): PlugKind {
   }
 }
 
-export const isDC = (c: Conn) => c.p === "DC" || ["ccs2", "ccs1", "chademo"].includes(plugKind(c.s));
+export const isDC = (c: Conn) => {
+  const k = plugKind(c.s);
+  if (k === "ccs2" || k === "ccs1" || k === "chademo") return true;
+  // Un Tipo 2 solo es carga rápida en los Supercargadores antiguos de Tesla (DC de verdad, > 43 kW)
+  if (k === "t2" || k === "t1" || k === "t3" || k === "schuko") return c.p === "DC" && (c.kw ?? 0) > 43;
+  return c.p === "DC";
+};
 const fmtKw = (kw: number) => `${String(Math.round(kw * 10) / 10).replace(".", ",")} kW`;
 
 // ---------- Tu coche ----------
@@ -155,9 +161,9 @@ export const zeroOnly = (c: Conn) => !hasPrice(c) && (c.e === 0 || c.t === 0 || 
 
 export type FillEstimate = { kwh: number; kw: number; minutes: number; cost: number | null };
 
-/** Coste y tiempo de cargar del 20 % al 100 % (aproximado: la carga rápida baja de potencia al final) */
-export function fillEstimate(c: Conn, car: Car): FillEstimate {
-  const kwh = car.battery * 0.8;
+/** Coste y tiempo de cargar del 20 % al 100 % (o hasta `toPct`; aproximado: la carga rápida baja de potencia al final) */
+export function fillEstimate(c: Conn, car: Car, toPct = 1): FillEstimate {
+  const kwh = car.battery * Math.max(0.1, toPct - 0.2);
   const kw = effectiveKw(c, car);
   const hours = kwh / (kw * (isDC(c) ? 0.75 : 0.95));
   const cost = hasPrice(c) ? ((c.e ?? 0) * kwh + (c.t ?? 0) * hours + (c.f ?? 0)) * vatFactor(c) : null;
@@ -227,8 +233,16 @@ export type ConnGroup = {
   evses: Evse[];
   compatible: boolean;
   price: number | null; // €/kWh con IVA
+  doubtful: boolean; // precio sospechosamente bajo: se enseña, pero no se pone el primero
   fill: FillEstimate;
 };
+
+/**
+ * Por debajo de esto (con IVA) casi seguro que el operador no ha puesto su tarifa real
+ * (p. ej. 0,09 €/kWh en todos los puntos). Se enseña "a confirmar" y no cuenta para "el mejor".
+ */
+export const DOUBTFUL_KWH = 0.15;
+export const isDoubtful = (p: number | null) => p != null && p < DOUBTFUL_KWH;
 
 /** Agrupa por enchufe + potencia + tarifa (lo que el usuario ve como "Tipo 2 · 22 kW") */
 export function groups(ch: Charger, car: Car): ConnGroup[] {
@@ -252,6 +266,7 @@ export function groups(ch: Charger, car: Car): ConnGroup[] {
         evses: [e],
         compatible: compatible(c, car),
         price: priceKwh(c),
+        doubtful: isDoubtful(priceKwh(c)),
         fill: fillEstimate(c, car),
       });
     }
@@ -273,9 +288,10 @@ export type Summary = {
 export function summarize(ch: Charger, car: Car, now = Date.now()): Summary {
   const gs = groups(ch, car);
   const comp = gs.filter((g) => g.compatible && g.evses.some((e) => !evseDown(e, now)));
-  const priced = comp.filter((g) => g.fill.cost != null);
+  const byCost = (a: ConnGroup, b: ConnGroup) => a.fill.cost! - b.fill.cost! || a.fill.minutes - b.fill.minutes;
   const best =
-    priced.sort((a, b) => a.fill.cost! - b.fill.cost! || a.fill.minutes - b.fill.minutes)[0] ??
+    comp.filter((g) => g.fill.cost != null && !g.doubtful).sort(byCost)[0] ??
+    comp.filter((g) => g.fill.cost != null).sort(byCost)[0] ??
     comp.sort((a, b) => b.kw - a.kw)[0] ??
     null;
   const avail = availability(ch.evses, now);
@@ -292,6 +308,14 @@ export function summarize(ch: Charger, car: Car, now = Date.now()): Summary {
     plugs,
     maxKw: Math.max(0, ...gs.map((g) => g.kw)),
   };
+}
+
+/** El enchufe cuyo precio se enseña en listas y mapa: el mejor para tu coche, o el más barato "creíble" */
+export function displayGroup(s: Summary, car: Car): ConnGroup | null {
+  if (car.electric) return s.best;
+  const priced = s.groups.filter((g) => g.price != null);
+  const pick = (gs: ConnGroup[]) => gs.sort((a, b) => a.price! - b.price!)[0];
+  return pick(priced.filter((g) => !g.doubtful)) ?? pick(priced) ?? null;
 }
 
 // ---------- Operadores ----------
@@ -572,3 +596,32 @@ export function minutesAgo(iso: string | null | undefined): string {
 
 /** Consumo medio para comparar con gasolina */
 export const EV_KWH_100KM = 17;
+
+// ---------- Cargadores en una ruta ----------
+
+export type ChargerRouteStop = { charger: Charger; kmAlong: number; offRouteKm: number; detourMin: number };
+export type ChargerRouteResponse = {
+  distanceKm: number;
+  durationMin: number;
+  updated: string | null;
+  considered: number; // puntos de recarga junto a la ruta
+  stops: ChargerRouteStop[];
+  waypoints: { km: number; label: string }[];
+};
+
+/** En viaje, con carga rápida se suele cargar hasta el 80 % (a partir de ahí va muy lenta) */
+export const routeTargetPct = (g: ConnGroup) => (g.dc ? 0.8 : 1);
+
+/** El enchufe que usarías en una parada de la ruta: compatible, que funcione y, si se pide, de carga rápida */
+export function routeGroup(s: Summary, car: Car, fastOnly: boolean, now = Date.now()): (ConnGroup & { trip: FillEstimate }) | null {
+  let gs = s.groups.filter((g) => (!car.electric || g.compatible) && g.evses.some((e) => !evseDown(e, now)));
+  if (fastOnly) gs = gs.filter((g) => g.dc);
+  if (!gs.length) return null;
+  const withTrip = gs.map((g) => ({ ...g, trip: fillEstimate(g.conn, car, routeTargetPct(g)) }));
+  const byCost = (a: (typeof withTrip)[number], b: (typeof withTrip)[number]) => a.trip.cost! - b.trip.cost! || a.trip.minutes - b.trip.minutes;
+  return (
+    withTrip.filter((g) => g.trip.cost != null && !g.doubtful).sort(byCost)[0] ??
+    withTrip.filter((g) => g.trip.cost != null).sort(byCost)[0] ??
+    withTrip.sort((a, b) => b.kw - a.kw)[0]
+  );
+}

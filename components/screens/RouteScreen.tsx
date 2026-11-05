@@ -6,7 +6,8 @@ import { Icon } from "../Icon";
 import { PlaceSearch } from "../PlaceSearch";
 import { useLocation } from "../LocationProvider";
 import { navUrl, useNavigate } from "../NavigateProvider";
-import { useSettings } from "@/lib/store";
+import { useMode, useSettings } from "@/lib/store";
+import { ChargeRoute } from "../ChargeRoute";
 import { useJSON, r3 } from "@/lib/useJSON";
 import type { Place, RouteResponse } from "@/lib/types";
 import { fuelByKey } from "@/lib/fuels";
@@ -24,12 +25,13 @@ export function RouteScreen() {
   const [from, setFrom] = useState<Pt | null>(null); // null = mi ubicación
   const [to, setTo] = useState<Pt | null>(null);
   const [editing, setEditing] = useState<null | "from" | "to">(null);
+  const [mode, setMode] = useMode(); // gasolineras o cargadores (el último que usaste)
 
   const [discState] = useDiscounts();
   const origin = from ?? (loc ? { lat: loc.lat, lon: loc.lon, label: loc.label ?? "Mi ubicación" } : null);
   const dParam = encodeDiscounts(discState);
   const url =
-    origin && to
+    origin && to && mode === "fuel"
       ? `/api/route?from=${r3(origin.lat)},${r3(origin.lon)}&to=${r3(to.lat)},${r3(to.lon)}&fuel=${fuel}&tank=${settings.tank}${dParam ? `&d=${encodeURIComponent(dParam)}` : ""}`
       : null;
   const { data, error, loading } = useJSON<RouteResponse>(url);
@@ -50,6 +52,17 @@ export function RouteScreen() {
       <div className="stack-16 pad-x top">
         <h1 className="h1 big">Ruta</h1>
 
+        <div role="tablist" aria-label="Qué buscar en la ruta" className="mode-tabs">
+          <button type="button" role="tab" aria-selected={mode === "fuel"} className={mode === "fuel" ? "on" : undefined} onClick={() => setMode("fuel")}>
+            <Icon name="pump" size={16} stroke={2.4} color={mode === "fuel" ? "#0B7A43" : "currentColor"} />
+            Gasolineras
+          </button>
+          <button type="button" role="tab" aria-selected={mode === "charge"} className={mode === "charge" ? "on" : undefined} onClick={() => setMode("charge")}>
+            <Icon name="bolt" size={16} stroke={mode === "charge" ? 1.6 : 2.2} fill={mode === "charge" ? "#1F4FD1" : "none"} color={mode === "charge" ? "#1F4FD1" : "currentColor"} />
+            Cargadores
+          </button>
+        </div>
+
         <div className="card stack-12">
           <div className="row-12">
             <div className="route-dots" aria-hidden="true">
@@ -69,7 +82,7 @@ export function RouteScreen() {
               </button>
             </div>
           </div>
-          {data && (
+          {data && mode === "fuel" && (
             <div className="row-between">
               <span className="b14">
                 {data.distanceKm} km · {fmtMinutes(data.durationMin)} · {fuelByKey(fuel)?.label}
@@ -80,23 +93,33 @@ export function RouteScreen() {
         </div>
 
         {!to && (
-          <EmptyState icon="route" title="Reposta en el camino" text="Dinos a dónde vas y te enseñamos las gasolineras de la ruta que más te hacen ahorrar, contando el desvío.">
+          <EmptyState
+            icon="route"
+            title={mode === "fuel" ? "Reposta en el camino" : "Carga en el camino"}
+            text={
+              mode === "fuel"
+                ? "Dinos a dónde vas y te enseñamos las gasolineras de la ruta que más te hacen ahorrar, contando el desvío."
+                : "Dinos a dónde vas y te enseñamos dónde cargar por el camino: los cargadores que le sirven a tu coche y lo que cuesta, contando el desvío."
+            }
+          >
             <button type="button" className="btn primary" onClick={() => setEditing("to")}>
               <Icon name="search" size={18} /> Elegir destino
             </button>
           </EmptyState>
         )}
 
-        {loading && !data && (
+        {mode === "charge" && origin && to && <ChargeRoute origin={origin} to={to} />}
+
+        {mode === "fuel" && loading && !data && (
           <>
             <Skeleton h={90} r={22} />
             <Skeleton h={120} r={22} />
             <Skeleton />
           </>
         )}
-        {error && <EmptyState icon="info" title="No hemos podido calcular la ruta" text={error} />}
+        {mode === "fuel" && error && <EmptyState icon="info" title="No hemos podido calcular la ruta" text={error} />}
 
-        {data && origin && to && (
+        {mode === "fuel" && data && origin && to && (
           <>
             <div className="card route-strip" role="img" aria-label={`Recorrido de ${data.distanceKm} km con ${marks.length} paradas recomendadas`}>
               <div className="strip">

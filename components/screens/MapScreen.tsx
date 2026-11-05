@@ -21,7 +21,7 @@ import { brandStyle } from "@/lib/brands";
 import { haversineKm } from "@/lib/geo";
 import { useDiscounts } from "@/lib/discountStore";
 import { activeCount, applyDiscounts } from "@/lib/discounts";
-import { availText, carFrom, chargerName, cpoStyle, EV_KWH_100KM, summarize, type Car, type ChargersResponse, type Summary } from "@/lib/chargers";
+import { availText, carFrom, chargerName, cpoStyle, displayGroup, EV_KWH_100KM, summarize, type Car, type ChargersResponse, type Summary } from "@/lib/chargers";
 
 const RADII = [2, 5, 10, 20];
 const FALLBACK = { lat: 40.4168, lon: -3.7038 }; // Puerta del Sol
@@ -34,9 +34,7 @@ const BOLT = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor
 
 /** Precio que enseñamos de un punto de recarga: el del enchufe que le va a tu coche */
 function chargerPrice(s: Summary, car: Car): number | null {
-  if (car.electric) return s.best?.price ?? null;
-  const ps = s.groups.map((g) => g.price).filter((p): p is number => p != null);
-  return ps.length ? Math.min(...ps) : null;
+  return displayGroup(s, car)?.price ?? null;
 }
 
 function esc(s: string) {
@@ -111,7 +109,7 @@ export function MapScreen() {
     return list;
   }, [chRes.data, mode, carKey, onlyCompat, onlyWorking]); // eslint-disable-line react-hooks/exhaustive-deps
   const bestChId = useMemo(() => {
-    const ok = chargers.filter((x) => x.best && !x.allDown && x.best.fill.cost != null && (!car.electric || x.compatible));
+    const ok = chargers.filter((x) => x.best && !x.allDown && x.best.fill.cost != null && !x.best.doubtful && (!car.electric || x.compatible));
     const score = (x: Summary) => x.best!.fill.cost! + (x.ch.dist ?? 0) * 2 * (EV_KWH_100KM / 100) * (x.best!.price ?? 0.4);
     return (car.electric ? ok.sort((a, b) => score(a) - score(b))[0] : undefined)?.ch.id ?? chargers[0]?.ch.id;
   }, [chargers, car.electric]);
@@ -185,7 +183,8 @@ export function MapScreen() {
         const on = x.ch.id === selId;
         const st = cpoStyle(x.ch.party, x.ch.operator);
         const off = (car.electric && !x.compatible) || x.allDown;
-        const color = x.allDown ? "#B5341A" : off ? "#5B6675" : price != null ? "#1F4FD1" : "#5B6675";
+        const doubt = displayGroup(x, car)?.doubtful ?? false;
+        const color = x.allDown ? "#B5341A" : off || doubt ? "#5B6675" : price != null ? "#1F4FD1" : "#5B6675";
         const wrap = document.createElement("div");
         const node = document.createElement("button");
         wrap.appendChild(node);
@@ -286,7 +285,8 @@ export function MapScreen() {
   const selDist = selected && gps ? haversineKm(gps.lat, gps.lon, selected.lat, selected.lon) : selected?.dist;
   const chDist = selCh && gps ? haversineKm(gps.lat, gps.lon, selCh.ch.lat, selCh.ch.lon) : selCh?.ch.dist;
   const chPrice = selCh ? chargerPrice(selCh, car) : null;
-  const chCost = selCh && car.electric ? selCh.best?.fill.cost ?? null : null;
+  const chDoubt = selCh ? displayGroup(selCh, car)?.doubtful ?? false : false;
+  const chCost = selCh && car.electric && !chDoubt ? selCh.best?.fill.cost ?? null : null;
   const chAvail = selCh ? availText(selCh.avail) : null;
   const showCard = mode === "fuel" ? !!(selected && selPrice != null && selLv) : !!selCh;
 
@@ -436,7 +436,7 @@ export function MapScreen() {
             </div>
             <div className="col-2 end">
               <span className={`price-lg${chPrice != null ? " blue-ink" : " muted"}`}>{chPrice != null ? `${euro(chPrice)} €` : "—"}</span>
-              <span className="b12 muted nowrap">{chCost != null ? `${euro(chCost)} € lleno` : chPrice != null ? "por kWh" : "sin precio"}</span>
+              <span className="b12 muted nowrap">{chDoubt ? "a confirmar" : chCost != null ? `${euro(chCost)} € lleno` : chPrice != null ? "por kWh" : "sin precio"}</span>
             </div>
           </div>
           <span className={`b12 tone-${car.electric && !selCh.compatible ? "muted" : chAvail.tone}`}>

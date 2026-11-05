@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { stationsInArea } from "@/lib/ministry";
-import { cumulativeKm, distanceToPolyline, expandBBox, haversineKm, lineBBox } from "@/lib/geo";
+import { distanceToPolyline, expandBBox, haversineKm, lineBBox } from "@/lib/geo";
+import { getRoute, parsePoint, waypointsFor } from "@/lib/routing";
 import { isFuelKey } from "@/lib/fuels";
 import { CONSUMPTION_L_100KM } from "@/lib/savings";
 import type { RouteResponse, RouteStop } from "@/lib/types";
@@ -9,15 +10,6 @@ import { applyDiscounts, decodeDiscounts } from "@/lib/discounts";
 export const maxDuration = 60;
 
 const CORRIDOR_KM = 2.5;
-
-function parsePoint(v: string | null): [number, number] | null {
-  if (!v) return null;
-  const [lat, lon] = v.split(",").map(Number);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  if (lat < 27 || lat > 44.5 || lon < -18.5 || lon > 4.6) return null; // solo España
-  const r3 = (n: number) => Math.round(n * 1000) / 1000;
-  return [r3(lat), r3(lon)];
-}
 
 /** Gasolineras a lo largo de una ruta en coche, ordenadas por ahorro neto (contando el desvío). */
 export async function GET(req: NextRequest) {
@@ -32,29 +24,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Ruta con OSRM (servidor público de demostración; para producción conviene uno propio u OpenRouteService)
-    const osrm = await fetch(
-      `https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`,
-      { signal: AbortSignal.timeout(15000), next: { revalidate: 3600 } },
-    );
-    if (!osrm.ok) throw new Error("No se ha podido calcular la ruta");
-    const rj = (await osrm.json()) as {
-      code: string;
-      routes: { distance: number; duration: number; geometry: { coordinates: [number, number][] } }[];
-    };
-    if (rj.code !== "Ok" || !rj.routes.length) throw new Error("No hay ruta en coche entre esos puntos");
-    const route = rj.routes[0];
-
-    // Simplificamos la línea: un punto cada ~300 m es suficiente para el pasillo
-    const full = route.geometry.coordinates;
-    const line: [number, number][] = [full[0]];
-    for (const c of full.slice(1)) {
-      const last = line[line.length - 1];
-      if (haversineKm(last[1], last[0], c[1], c[0]) >= 0.3) line.push(c);
-    }
-    if (line[line.length - 1] !== full[full.length - 1]) line.push(full[full.length - 1]);
-    const cum = cumulativeKm(line);
-    const scale = route.distance / 1000 / (cum[cum.length - 1] || 1);
+    const { line, cum, scale, distanceKm, durationMin } = await getRoute(from, to);
 
     const ds = await stationsInArea(expandBBox(lineBBox(line), CORRIDOR_KM));
     const corridor = applyDiscounts(ds.stations, decodeDiscounts(sp.get("d")))
@@ -84,19 +54,14 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.netSavings - a.netSavings)
       .slice(0, 8);
 
-    // Pueblos de referencia a 1/3 y 2/3 del recorrido para la tira del recorrido
-    const total = route.distance / 1000;
-    const waypoints = [1 / 3, 2 / 3]
-      .map((f) => {
-        const target = total * f;
-        const near = corridor.filter((x) => x.dist < 1.5).sort((a, b) => Math.abs(a.along - target) - Math.abs(b.along - target))[0];
-        return near && Math.abs(near.along - target) < total * 0.15 ? { km: Math.round(near.along), label: near.s.mun } : null;
-      })
-      .filter((w): w is { km: number; label: string } => w !== null);
+    const waypoints = waypointsFor(
+      corridor.map((x) => ({ along: x.along, dist: x.dist, label: x.s.mun })),
+      distanceKm,
+    );
 
     const body: RouteResponse = {
-      distanceKm: Math.round(total),
-      durationMin: Math.round(route.duration / 60),
+      distanceKm: Math.round(distanceKm),
+      durationMin: Math.round(durationMin),
       fuel,
       average: avg,
       stops,

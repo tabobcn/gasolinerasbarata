@@ -177,7 +177,10 @@ export function ChargerDetail({ id }: { id: string }) {
                       {!g.compatible && car.electric ? " · tu coche no lo admite" : ""}
                     </span>
                   </span>
-                  <span className={`price-sm${g.compatible ? " blue-ink" : " muted"}`}>{g.price != null ? fmtKwhPrice(g.price) : "—"}</span>
+                  <span className="col-0 end">
+                    <span className={`price-sm${g.compatible && !g.doubtful ? " blue-ink" : " muted"}`}>{g.price != null ? fmtKwhPrice(g.price) : "—"}</span>
+                    {g.doubtful && <span className="muted b12">a confirmar</span>}
+                  </span>
                 </button>
               );
             })}
@@ -205,6 +208,7 @@ export function ChargerDetail({ id }: { id: string }) {
                 </span>
               </span>
             </span>
+            {sel.doubtful && <span className="b12 soft-text">Ojo: el precio que publica el operador en REVE es demasiado bajo para ser real. Confírmalo en su app.</span>}
             {sel.kw > sel.fill.kw + 0.05 && (
               <span className="b12 soft-text">
                 El cargador da {kw(sel.kw)}, pero tu coche carga como máximo a {kw(sel.fill.kw)}

@@ -132,3 +132,43 @@ where resource = 'tariffs';
 
 -- Índice duplicado (lo avisa Supabase)
 drop index if exists ev_evses_location_idx;
+
+-- Puntos de recarga cerca de una ruta: cajas pequeñas alrededor de puntos del recorrido
+create or replace function chargers_in_boxes(p_points jsonb, p_km double precision default 2.5, p_limit int default 1500)
+returns jsonb
+language sql stable
+set search_path = public
+as $$
+  with pts as (
+    select (p->>0)::double precision as lat, (p->>1)::double precision as lon
+    from jsonb_array_elements(p_points) p
+    limit 2000
+  ), k as (
+    select least(greatest(coalesce(p_km, 2.5), 0.5), 10) as km
+  ), cand as (
+    select distinct l.id
+    from pts, k, ev_locations l
+    where l.lat between pts.lat - k.km / 111.0 and pts.lat + k.km / 111.0
+      and l.lon between pts.lon - k.km / (111.0 * cos(radians(pts.lat))) and pts.lon + k.km / (111.0 * cos(radians(pts.lat)))
+    limit least(greatest(coalesce(p_limit, 1500), 1), 3000)
+  )
+  select jsonb_build_object(
+    'updated', ev_last_sync(),
+    'items', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', l.id, 'name', l.name, 'address', l.address, 'city', l.city,
+        'operator', l.operator, 'party', l.party_id,
+        'lat', l.lat, 'lon', l.lon, 'h24', l.twentyfourseven, 'updated', l.updated_at,
+        'evses', (
+          select coalesce(jsonb_agg(jsonb_build_object(
+            'id', e.id, 'op', e.operational, 'st', e.status, 'stu', e.status_updated, 'chk', e.status_checked, 'kw', e.max_kw,
+            'c', ev_connectors_json(e.connectors)
+          ) order by e.evse_id), '[]'::jsonb)
+          from ev_evses e where e.location_id = l.id
+        )
+      ))
+      from ev_locations l join cand on cand.id = l.id
+    ), '[]'::jsonb)
+  );
+$$;
+grant execute on function chargers_in_boxes(jsonb, double precision, int) to anon, authenticated;
