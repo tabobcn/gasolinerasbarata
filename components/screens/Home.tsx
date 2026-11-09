@@ -173,10 +173,10 @@ export function Home() {
                 <span className="pill amber">
                   Con {best.station.disc.label} −{best.station.disc.cts} cts
                 </span>
-              ) : view.avg != null && view.avg - bestPrice >= 0.005 ? (
+              ) : best.avg - bestPrice >= 0.005 ? (
                 <span className="pill green">
                   <Icon name="trendDown" size={14} stroke={2.6} />
-                  {fmtCents(view.avg - bestPrice)} bajo la media
+                  {fmtCents(best.avg - bestPrice)} bajo la media
                 </span>
               ) : (
                 <span className="pill amber">En la media de la zona</span>

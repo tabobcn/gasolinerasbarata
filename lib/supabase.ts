@@ -27,3 +27,9 @@ export async function edge<T>(name: string, query: string): Promise<T> {
 }
 
 export const validId = (id: string) => /^[A-Za-z0-9_-]{6,64}$/.test(id);
+
+/** Ids de un sitio con varios postes: el principal + los de `?g=a,b,c` (máx. 12 en total) */
+export function groupIds(g: string | null, id: string): string[] {
+  const extra = (g ?? "").split(",").filter((x) => validId(x) && x !== id);
+  return [id, ...new Set(extra)].slice(0, 12);
+}

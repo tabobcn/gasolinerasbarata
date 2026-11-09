@@ -68,7 +68,8 @@ export default async function Page({ params }: Props) {
     .sort((a, b) => a.d - b.d)
     .slice(0, 12)
     .map((x) => x.m);
-  const appHere = `lat=${mun.lat.toFixed(4)}&lon=${mun.lon.toFixed(4)}`;
+  const spot = g95.cheapest ?? goa.cheapest ?? mun;
+  const appHere = `lat=${spot.lat.toFixed(4)}&lon=${spot.lon.toFixed(4)}`;
   const cents = (a: number, b: number) => Math.round((b - a) * 100);
 
   return (

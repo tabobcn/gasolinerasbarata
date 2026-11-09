@@ -2,7 +2,7 @@
 export const APP_NAME = "Gasolineras Cerca";
 export const APP_SHORT = "Gasolineras";
 export const APP_DESCRIPTION =
-  "Encuentra la gasolinera más barata cerca de ti con los precios oficiales del Ministerio, cuánto ahorras de verdad y cómo llegar con Google Maps o Waze.";
+  "Encuentra la gasolinera más barata y los cargadores para coche eléctrico cerca de ti: precios oficiales del Ministerio, puntos de recarga con precio y estado, cuánto ahorras de verdad y cómo llegar con Google Maps o Waze.";
 
 /**
  * Supabase (puntos de recarga de REVE). Son valores públicos: la clave "publishable" solo permite

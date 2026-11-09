@@ -2,7 +2,7 @@ import "server-only";
 import { FUELS } from "./fuels";
 import type { Prices, Station } from "./types";
 import { brandKey, fixMunicipality, stationName } from "./brands";
-import { titleCase } from "./format";
+import { cleanAddress, titleCase } from "./format";
 import { bboxIntersects, type BBox } from "./geo";
 import PROVINCE_BBOX from "./province-bbox.json";
 
@@ -47,6 +47,12 @@ export function madridDateToISO(fecha: string | undefined): string | null {
   return new Date(t).toISOString();
 }
 
+/** "HOSPITALET DE LLOBREGAT (L')" → "L'Hospitalet de Llobregat" */
+function fixTown(raw: string): string {
+  const t = fixMunicipality(titleCase(raw));
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
 export function normalize(r: RawStation): Station | null {
   const lat = num(r["Latitud"]);
   const lonRaw = r["Longitud (WGS84)"];
@@ -64,8 +70,8 @@ export function normalize(r: RawStation): Station | null {
     id: r["IDEESS"],
     brand,
     name: stationName(brand, mun),
-    address: titleCase(r["Dirección"] || ""),
-    town: titleCase(r["Localidad"] || ""),
+    address: cleanAddress(titleCase(r["Dirección"] || "")),
+    town: fixTown(r["Localidad"] || ""),
     mun,
     munId: r["IDMunicipio"],
     prov: titleCase(r["Provincia"] || ""),

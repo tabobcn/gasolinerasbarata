@@ -73,3 +73,30 @@ export function titleCase(s: string): string {
 export function madridDate(d = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Madrid" }).format(d);
 }
+
+/** "Calle Calle de Ladera…" → "Calle de Ladera…" (el Ministerio a veces repite la primera palabra) */
+export function cleanAddress(a: string): string {
+  return a.replace(/^(\S+)\s+\1\b/i, "$1").replace(/\s{2,}/g, " ").trim();
+}
+
+const STREET_ABBR: [RegExp, string][] = [
+  [/^(calle|carrer|rúa|rua|kalea)\s+/i, "C/ "],
+  [/^(avenida|avinguda|avda\.?|avd\.?)\s+/i, "Av. "],
+  [/^(carretera|ctra\.?|cr\.?)\s+/i, "Ctra. "],
+  [/^(pol[ií]gono industrial|pol[ií]gon industrial)\s+/i, "P.I. "],
+  [/^(pol[ií]gono|pol[ií]gon)\s+/i, "Pol. "],
+  [/^(paseo|passeig)\s+/i, "Pº "],
+  [/^(plaza|plaça)\s+/i, "Pl. "],
+];
+
+/** Dirección abreviada para las filas de las listas: "Avenida de Carrilet, 269" → "Av. de Carrilet, 269" */
+export function shortStreet(a: string | null | undefined): string {
+  let s = (a ?? "").trim();
+  for (const [re, to] of STREET_ABBR) {
+    if (re.test(s)) {
+      s = s.replace(re, to);
+      break;
+    }
+  }
+  return s;
+}

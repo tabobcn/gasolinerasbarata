@@ -21,7 +21,7 @@ import { brandStyle } from "@/lib/brands";
 import { haversineKm } from "@/lib/geo";
 import { useDiscounts } from "@/lib/discountStore";
 import { activeCount, applyDiscounts } from "@/lib/discounts";
-import { availText, carFrom, chargerName, cpoStyle, displayGroup, EV_KWH_100KM, summarize, type Car, type ChargersResponse, type Summary } from "@/lib/chargers";
+import { availText, carFrom, chargerHref, chargerName, cpoStyle, displayGroup, EV_KWH_100KM, summarize, type Car, type ChargersResponse, type Summary } from "@/lib/chargers";
 
 const RADII = [2, 5, 10, 20];
 const FALLBACK = { lat: 40.4168, lon: -3.7038 }; // Puerta del Sol
@@ -453,7 +453,7 @@ export function MapScreen() {
             >
               <Icon name="navigate" size={18} stroke={2.4} /> Ir
             </button>
-            <Link href={`/cargador/${selCh.ch.id}`} className="btn soft grow h52">
+            <Link href={chargerHref(selCh.ch)} className="btn soft grow h52">
               Ver ficha
             </Link>
           </div>

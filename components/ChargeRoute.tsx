@@ -9,7 +9,7 @@ import { navUrl } from "./NavigateProvider";
 import { useSettings } from "@/lib/store";
 import { r3, useJSON } from "@/lib/useJSON";
 import { fmtMinutes } from "@/lib/format";
-import { availText, carFrom, chargerName, fmtDateTime, PLUG_LABEL, routeGroup, summarize, type ChargerRouteResponse } from "@/lib/chargers";
+import { availText, carFrom, chargerHref, chargerName, datesText, PLUG_LABEL, routeGroup, summarize, type ChargerRouteResponse } from "@/lib/chargers";
 
 type Pt = { lat: number; lon: number; label: string };
 
@@ -122,7 +122,7 @@ export function ChargeRoute({ origin, to }: { origin: Pt; to: Pt }) {
 
           {best && (
             <div className="card hero stack-12">
-              <Link href={`/cargador/${best.st.charger.id}`} className="row-12 plain">
+              <Link href={chargerHref(best.st.charger)} className="row-12 plain">
                 <ChargerTile ch={best.st.charger} size={48} />
                 <span className="col-2 grow min0 left">
                   <span className="b17 clamp-2">{chargerName(best.st.charger)}</span>
@@ -154,7 +154,7 @@ export function ChargeRoute({ origin, to }: { origin: Pt; to: Pt }) {
                 <a className="btn primary grow" href={navUrl("maps", best.st.charger, { origin, destination: to })} target="_blank" rel="noopener">
                   <Icon name="plus" size={16} stroke={2.6} /> Añadir parada
                 </a>
-                <Link href={`/cargador/${best.st.charger.id}`} className="btn soft">
+                <Link href={chargerHref(best.st.charger)} className="btn soft">
                   Ver ficha
                 </Link>
               </div>
@@ -163,7 +163,7 @@ export function ChargeRoute({ origin, to }: { origin: Pt; to: Pt }) {
 
           <div className="stack-8">
             {stops.slice(1).map(({ st, s, g }) => (
-              <Link key={st.charger.id} href={`/cargador/${st.charger.id}`} className="row-card">
+              <Link key={st.charger.id} href={chargerHref(st.charger)} className="row-card">
                 <ChargerTile ch={st.charger} size={40} />
                 <span className="col-2 grow min0">
                   <span className="b15 ellipsis">{chargerName(st.charger)}</span>
@@ -184,7 +184,7 @@ export function ChargeRoute({ origin, to }: { origin: Pt; to: Pt }) {
           </div>
 
           <p className="source">
-            Fuente: Red Eléctrica de España (REVE). Datos actualizados el {fmtDateTime(data.updated)}. Ruta calculada con OSRM (OpenStreetMap). Coste y tiempo
+            Fuente: Red Eléctrica de España (REVE). {datesText(data.updated, data.prices)} Ruta calculada con OSRM (OpenStreetMap). Coste y tiempo
             aproximados de cargar del 20 al 80 % en carga rápida y del 20 al 100 % en carga normal, con precios con IVA cuando el operador lo indica. Para ordenar
             se suma lo que gastas en el desvío.
           </p>

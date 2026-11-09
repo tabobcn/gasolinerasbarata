@@ -1,5 +1,6 @@
 import type { Settings } from "./store";
 import { titleCase } from "./format";
+import { haversineKm } from "./geo";
 
 // ---------- Tipos (lo que devuelven las funciones de Supabase) ----------
 
@@ -56,10 +57,13 @@ export type Charger = {
   updated: string | null;
   synced?: string | null;
   evses: Evse[];
+  /** Si agrupa varios postes del mismo sitio: ids de todas las ubicaciones de REVE (la primera es `id`) */
+  ids?: string[];
 };
 
-export type ChargersResponse = { updated: string | null; items: Charger[] };
-export type ChargerDetailResponse = { updated: string | null; item: Charger };
+/** `updated`: última actualización del estado; `prices`: última carga correcta de precios */
+export type ChargersResponse = { updated: string | null; prices?: string | null; items: Charger[] };
+export type ChargerDetailResponse = { updated: string | null; prices?: string | null; item: Charger };
 export type LiveResponse = { checked: string; evses: { id: string; st: string | null; stu: string | null; chk: string | null }[] };
 
 // ---------- Enchufes ----------
@@ -316,6 +320,100 @@ export function displayGroup(s: Summary, car: Car): ConnGroup | null {
   const priced = s.groups.filter((g) => g.price != null);
   const pick = (gs: ConnGroup[]) => gs.sort((a, b) => a.price! - b.price!)[0];
   return pick(priced.filter((g) => !g.doubtful)) ?? pick(priced) ?? null;
+}
+
+// ---------- Agrupar postes del mismo sitio ----------
+
+const SITE_KM = 0.08; // postes del mismo operador a menos de 80 m = el mismo sitio
+
+/** Parte común de los nombres ("Cornella Popeyes P05" + "…P02" → "Cornella Popeyes") */
+function commonName(names: (string | null)[]): string | null {
+  const ns = names.map((n) => (n ?? "").trim()).filter(Boolean);
+  if (!ns.length) return null;
+  if (ns.every((n) => n === ns[0])) return ns[0];
+  let p = ns[0];
+  for (const n of ns) {
+    let i = 0;
+    while (i < p.length && i < n.length && p[i] === n[i]) i++;
+    p = p.slice(0, i);
+  }
+  // Si el corte cae en mitad de una palabra o código, se quita ese trozo
+  if (ns.some((n) => n.length > p.length && /\S/.test(n[p.length])) && !/\s$/.test(p)) p = p.replace(/\S+$/, "");
+  p = p.replace(/[\s\-_·,.#(/]+$/, "").trim();
+  return p.length >= 4 ? p : ns[0];
+}
+
+/**
+ * Junta en una sola ficha los postes del mismo operador que están en el mismo sitio
+ * (REVE los publica como ubicaciones distintas: "Popeyes P01", "P02"…). No cambia ningún dato:
+ * solo los presenta juntos. Se conserva el orden de entrada (el primero de cada grupo es el principal).
+ */
+const siteKey = (c: Pick<Charger, "party" | "operator">) => c.party ?? c.operator ?? null;
+
+/** ¿Son el mismo sitio? Mismo operador (conocido) y a menos de 80 m */
+export function sameSite(a: Charger, b: Charger): boolean {
+  const k = siteKey(a);
+  return k != null && k === siteKey(b) && haversineKm(a.lat, a.lon, b.lat, b.lon) <= SITE_KM;
+}
+
+export function groupSites(items: Charger[]): Charger[] {
+  const byOp = new Map<string, Charger[]>();
+  const out: Charger[] = [];
+  for (const it of items) {
+    const key = siteKey(it) ?? `?${it.id}`; // sin operador conocido no se agrupa
+    const list = byOp.get(key) ?? [];
+    if (!byOp.has(key)) byOp.set(key, list);
+    const g = list.find((x) => sameSite(x, it));
+    if (g) addToSite(g, it);
+    else {
+      const head: Charger = { ...it, evses: [...it.evses] };
+      list.push(head);
+      out.push(head);
+    }
+  }
+  return out;
+}
+
+function addToSite(g: Charger, it: Charger) {
+  const first = g.ids ?? [g.id];
+  if (first.includes(it.id)) return;
+  g.name = commonName([g.name, it.name]);
+  g.ids = [...first, it.id];
+  g.evses.push(...it.evses);
+  if (it.dist != null && (g.dist == null || it.dist < g.dist)) g.dist = it.dist;
+  if (g.h24 && !it.h24) g.h24 = it.h24;
+  if (it.updated && (!g.updated || it.updated > g.updated)) g.updated = it.updated;
+  if (!g.facilities?.length && it.facilities?.length) g.facilities = it.facilities;
+}
+
+/** Une en una sola ficha una lista de ubicaciones que ya sabemos que son el mismo sitio (la primera manda) */
+export function mergeChargers(list: Charger[]): Charger {
+  const head: Charger = { ...list[0], evses: [...list[0].evses] };
+  for (const it of list.slice(1)) addToSite(head, it);
+  return head;
+}
+
+/** Enlace a la ficha (con los demás postes del sitio, si los hay) */
+export function chargerHref(ch: Pick<Charger, "id" | "ids">): string {
+  const rest = (ch.ids ?? []).filter((x) => x !== ch.id);
+  return `/cargador/${ch.id}${rest.length ? `?g=${rest.join(",")}` : ""}`;
+}
+
+/** Entre los cargadores que te sirven y funcionan, el que antes te llena la batería */
+export function fastestOption(list: Summary[], car: Car, now = Date.now()): { s: Summary; g: ConnGroup } | null {
+  let best: { s: Summary; g: ConnGroup } | null = null;
+  for (const s of list) {
+    if (s.allDown || (car.electric && !s.compatible)) continue;
+    for (const g of s.groups) {
+      if ((car.electric && !g.compatible) || !g.evses.some((e) => !evseDown(e, now))) continue;
+      const better =
+        !best ||
+        g.fill.minutes < best.g.fill.minutes ||
+        (g.fill.minutes === best.g.fill.minutes && (g.fill.cost ?? Infinity) < (best.g.fill.cost ?? Infinity));
+      if (better) best = { s, g };
+    }
+  }
+  return best;
 }
 
 // ---------- Operadores ----------
@@ -585,6 +683,12 @@ export function fmtDateTime(iso: string | null | undefined): string {
   return new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 }
 
+/** "Precios cargados el …; estado de los puntos actualizado el …" (REVE pide mostrar la fecha de actualización) */
+export function datesText(updated: string | null | undefined, prices: string | null | undefined): string {
+  if (!prices) return `Datos actualizados el ${fmtDateTime(updated)}.`;
+  return `Precios cargados el ${fmtDateTime(prices)}; estado de los puntos actualizado el ${fmtDateTime(updated)}.`;
+}
+
 export function minutesAgo(iso: string | null | undefined): string {
   if (!iso) return "";
   const m = Math.round((Date.now() - Date.parse(iso)) / 60000);
@@ -604,6 +708,7 @@ export type ChargerRouteResponse = {
   distanceKm: number;
   durationMin: number;
   updated: string | null;
+  prices?: string | null;
   considered: number; // puntos de recarga junto a la ruta
   stops: ChargerRouteStop[];
   waypoints: { km: number; label: string }[];

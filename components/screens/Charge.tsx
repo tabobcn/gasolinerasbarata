@@ -15,10 +15,12 @@ import { average, CONSUMPTION_L_100KM } from "@/lib/savings";
 import { fmtKm, fmtMinutes } from "@/lib/format";
 import {
   carFrom,
+  chargerHref,
   chargerName,
   cpoStyle,
+  datesText,
   EV_KWH_100KM,
-  fmtDateTime,
+  fastestOption,
   PLUG_LABEL,
   prettyCity,
   summarize,
@@ -65,7 +67,10 @@ export function Charge() {
     };
     let rest = list.filter((s) => s !== hero);
     if (cheapFirst) rest = [...rest].sort((a, b) => priceOf(a) - priceOf(b) || (a.ch.dist ?? 0) - (b.ch.dist ?? 0));
-    return { hero, rest, shown: list.length, total };
+    // Si el más barato tarda mucho, se ofrece también el que antes llena la batería
+    const f = car.electric && hero?.best ? fastestOption(list, car, now) : null;
+    const fast = f && hero?.best && f.s !== hero && f.g.fill.minutes <= hero.best.fill.minutes * 0.6 ? f : null;
+    return { hero, fast, rest, shown: list.length, total };
   }, [data, car.electric, car.plugs.join(","), car.ac, car.dc, car.battery, onlyCompat, onlyWorking, cheapFirst]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Para comparar con gasolina: media de la gasolina 95 en la zona
@@ -206,7 +211,7 @@ export function Charge() {
               </span>
               <AvailBadge a={hero.avail} />
             </div>
-            <Link href={`/cargador/${hero.ch.id}`} className="row-12 plain">
+            <Link href={chargerHref(hero.ch)} className="row-12 plain">
               <ChargerTile ch={hero.ch} size={48} />
               <span className="col-2 min0">
                 <span className="b17 clamp-2">{chargerName(hero.ch)}</span>
@@ -242,11 +247,32 @@ export function Charge() {
                 <Icon name="navigate" size={20} stroke={2.4} />
                 Ir ahora
               </button>
-              <Link href={`/cargador/${hero.ch.id}`} className="btn soft big">
+              <Link href={chargerHref(hero.ch)} className="btn soft big">
                 Ver detalles
               </Link>
             </div>
           </section>
+        )}
+
+        {view?.fast && (
+          <Link href={chargerHref(view.fast.s.ch)} className="row-card">
+            <span className="soft-icon blue" aria-hidden="true">
+              <Icon name="bolt" size={20} stroke={2.2} />
+            </span>
+            <span className="col-2 grow min0">
+              <span className="eyebrow blue">EL MÁS RÁPIDO</span>
+              <span className="b15 ellipsis">{chargerName(view.fast.s.ch)}</span>
+              <span className="muted b12 ellipsis">
+                {fmtKm(view.fast.s.ch.dist)} · {PLUG_LABEL[view.fast.g.kind]} {kw(view.fast.g.kw)}
+              </span>
+            </span>
+            <span className="col-2 end">
+              <span className="price-sm nowrap">{fmtMinutes(view.fast.g.fill.minutes)}</span>
+              <span className="muted b12 nowrap">
+                {view.fast.g.fill.cost != null && !view.fast.g.doubtful ? `${euro(view.fast.g.fill.cost)} € lleno` : view.fast.g.price != null ? `${euro(view.fast.g.price)} €/kWh` : "sin precio"}
+              </span>
+            </span>
+          </Link>
         )}
 
         {hero && heroPrice != null && g95 != null && (
@@ -292,7 +318,7 @@ export function Charge() {
 
         {data && (
           <p className="source">
-            Fuente: Red Eléctrica de España (REVE, Registro de Vehículo Eléctrico). Datos actualizados el {fmtDateTime(data.updated)}. Precios con IVA (cuando el operador lo indica) calculados a partir de la tarifa
+            Fuente: Red Eléctrica de España (REVE, Registro de Vehículo Eléctrico). {datesText(data.updated, data.prices)} Precios con IVA (cuando el operador lo indica) calculados a partir de la tarifa
             que publica cada operador; el tiempo de carga es aproximado. Distancias en línea recta.
           </p>
         )}

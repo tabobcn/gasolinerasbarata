@@ -1,5 +1,7 @@
 // Sincroniza los puntos de recarga de REVE (Red Eléctrica de España) en Supabase.
-// Lo lanza pg_cron cada pocos minutos. Respeta los límites de REVE: 1.000 peticiones/hora por clave
+// Lo lanza pg_cron cada 2 minutos. Estado: solo cambios cada 10 min. Ubicaciones: cambios cada hora
+// y listado completo cada 24 h. Tarifas: listado completo cada 12 h.
+// Respeta los límites de REVE: 1.000 peticiones/hora por clave
 // (ventana deslizante de 1 hora: la sincronización usa como máximo 650 y el estado en directo 300)
 // y 5 peticiones por URL y hora (si algo falla, se espera de 15 min a 6 h antes de reintentar).
 import { createClient } from "jsr:@supabase/supabase-js@2";
@@ -64,6 +66,15 @@ function fail(s: State, msg: string) {
   const mins = Math.min(360, 15 * 2 ** (s.errors - 1));
   s.retry_at = new Date(Date.now() + mins * 60_000).toISOString();
   s.last_error = msg.slice(0, 300);
+}
+
+/** En un listado completo, tras varios fallos seguidos en la misma página se salta para no quedarse parado */
+function maybeSkip(s: State, skipAfter: number | null) {
+  if (!skipAfter || s.phase !== "full" || (s.errors ?? 0) < skipAfter) return;
+  s.last_error = `Página ${s.next_page} saltada tras ${skipAfter} fallos · ${s.last_error ?? ""}`.slice(0, 300);
+  s.next_page += 1;
+  s.errors = 0;
+  s.retry_at = null;
 }
 
 async function saveState(s: State) {
@@ -267,12 +278,24 @@ async function storeTariffs(items: any[]) {
   return rows.length;
 }
 
-// Orden: primero ubicaciones (sin ellas no se puede mostrar nada), luego tarifas y estado.
-// everyMin: cada cuánto se vuelve a pedir lo que ha cambiado una vez hecha la carga completa.
-const RESOURCES = [
-  { name: "locations", path: "/locations", everyMin: 60, store: storeLocations },
-  { name: "tariffs", path: "/connectors/tariffs", everyMin: 30, store: storeTariffs },
-  { name: "status", path: "/evses/operational_status", everyMin: 10, store: storeStatus },
+// Orden: primero lo rápido y urgente (estado), luego ubicaciones y al final las tarifas (pasada larga).
+//  - everyMin:   cada cuánto se piden "solo los cambios" (date_from). null = no se usa ese modo.
+//  - fullEveryH: cada cuántas horas se vuelve a pedir el listado completo. null = nunca.
+//  - skipAfter:  si una página del listado completo falla tantas veces seguidas, se salta y se sigue.
+// Las tarifas van SIEMPRE con listado completo: la consulta de "solo cambios" de REVE para tarifas
+// da error 504 (tiempo de espera) casi siempre y dejó los precios parados dos días.
+const RESOURCES: {
+  name: string;
+  path: string;
+  everyMin: number | null;
+  fullEveryH: number | null;
+  skipAfter: number | null;
+  // deno-lint-ignore no-explicit-any
+  store: (items: any[]) => Promise<number>;
+}[] = [
+  { name: "status", path: "/evses/operational_status", everyMin: 10, fullEveryH: null, skipAfter: null, store: storeStatus },
+  { name: "locations", path: "/locations", everyMin: 60, fullEveryH: 24, skipAfter: null, store: storeLocations },
+  { name: "tariffs", path: "/connectors/tariffs", everyMin: null, fullEveryH: 12, skipAfter: 3, store: storeTariffs },
 ];
 
 async function run() {
@@ -280,19 +303,31 @@ async function run() {
   const report: Record<string, unknown>[] = [];
   for (const r of RESOURCES) {
     const s = await getState(r.name);
+    // Un recurso que ya no usa "solo cambios" y se quedó a medias en ese modo: empezar listado completo
+    if (s.phase === "incremental" && r.everyMin == null) {
+      s.phase = "full";
+      s.next_page = 1;
+      s.total_pages = null;
+      s.pass_started = new Date().toISOString();
+      s.errors = 0;
+      s.retry_at = null;
+      s.last_error = null;
+      await saveState(s);
+    }
     if (s.retry_at && Date.parse(s.retry_at) > Date.now()) {
       report.push({ resource: r.name, stop: `esperando hasta ${s.retry_at}` });
       continue;
     }
     if (s.phase === "idle") {
-      // Una vez al día, pasada completa de ubicaciones para detectar puntos dados de baja
-      const fullDue = r.name === "locations" && (!s.full_at || Date.now() - Date.parse(s.full_at) > 24 * 3600_000);
+      const fullDue = r.fullEveryH != null && (!s.full_at || Date.now() - Date.parse(s.full_at) > r.fullEveryH * 3600_000);
       const last = s.updated_at ? Date.parse(s.updated_at) : 0;
-      if (!fullDue && Date.now() - last < r.everyMin * 60_000) continue;
+      const incDue = r.everyMin != null && Date.now() - last >= r.everyMin * 60_000;
+      if (!fullDue && !incDue) continue;
       s.phase = fullDue ? "full" : "incremental";
       s.next_page = 1;
       s.total_pages = null;
       s.pass_started = new Date().toISOString();
+      s.last_error = null;
     }
     if (!s.phase) s.phase = "full";
     if (!s.pass_started) s.pass_started = new Date().toISOString();
@@ -300,16 +335,20 @@ async function run() {
     let rows = 0;
     while (Date.now() - started < TIME_BUDGET_MS) {
       if (s.total_pages != null && s.next_page > s.total_pages) {
-        if (s.phase === "full" && r.name === "locations") {
+        if (s.phase === "full") {
           s.full_at = s.pass_started;
-          const { data: removed } = await supa.rpc("ev_cleanup", {});
-          report.push({ resource: r.name, removed });
+          if (r.name === "locations") {
+            // Tras la pasada completa diaria: borrar lo que REVE ya no publica
+            const { data: removed } = await supa.rpc("ev_cleanup", {});
+            report.push({ resource: r.name, removed });
+          }
         }
         s.phase = "idle";
         s.cursor_date = s.pass_started;
         s.pass_started = null;
         s.next_page = 1;
-        s.last_error = null;
+        // El aviso de "página saltada" se conserva hasta la siguiente pasada, para poder verlo
+        if (!s.last_error?.startsWith("Página")) s.last_error = null;
         await saveState(s);
         break;
       }
@@ -325,6 +364,7 @@ async function run() {
         res = await fetchPage(r.path, params);
       } catch (e) {
         fail(s, `Sin respuesta de REVE: ${(e as Error).message}`);
+        maybeSkip(s, r.skipAfter);
         await saveState(s);
         report.push({ resource: r.name, pages, rows, stop: s.last_error });
         break;
@@ -338,6 +378,7 @@ async function run() {
       }
       if (res.status !== 200 || !Array.isArray(res.data)) {
         fail(s, `HTTP ${res.status}: ${JSON.stringify(res.data)?.slice(0, 200)}`);
+        maybeSkip(s, r.skipAfter);
         await saveState(s);
         report.push({ resource: r.name, pages, rows, stop: s.last_error });
         break;
@@ -348,6 +389,7 @@ async function run() {
         if (data.length) rows += await r.store(data);
       } catch (e) {
         fail(s, `Error guardando: ${(e as Error).message}`);
+        maybeSkip(s, r.skipAfter);
         await saveState(s);
         report.push({ resource: r.name, pages, rows, stop: s.last_error });
         break;
@@ -358,7 +400,7 @@ async function run() {
       s.next_page += 1;
       s.errors = 0;
       s.retry_at = null;
-      s.last_error = null;
+      if (!s.last_error?.startsWith("Página")) s.last_error = null;
       s.last_ok_at = new Date().toISOString();
       await saveState(s);
     }

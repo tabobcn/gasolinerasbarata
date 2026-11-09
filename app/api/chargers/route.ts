@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { rpc } from "@/lib/supabase";
-import type { ChargersResponse } from "@/lib/chargers";
+import { groupSites, type ChargersResponse } from "@/lib/chargers";
 
 /** Puntos de recarga cerca (datos de REVE guardados en Supabase) */
 export async function GET(req: NextRequest) {
@@ -12,7 +12,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Ubicación fuera de España" }, { status: 400 });
   }
   try {
-    const body = await rpc<ChargersResponse>("chargers_near", { p_lat: lat, p_lon: lon, p_radius_km: radius, p_limit: 80 });
+    const data = await rpc<ChargersResponse>("chargers_near", { p_lat: lat, p_lon: lon, p_radius_km: radius, p_limit: 120 });
+    // Los postes del mismo sitio (P01, P02…) se enseñan como un solo punto
+    const body: ChargersResponse = { ...data, items: groupSites(data.items) };
     return NextResponse.json(body, { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=900" } });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 502 });

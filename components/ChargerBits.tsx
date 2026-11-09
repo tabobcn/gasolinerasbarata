@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { fmtKm } from "@/lib/format";
-import { availText, chargerName, cpoStyle, displayGroup, type Avail, type Car, type Charger, type Summary } from "@/lib/chargers";
+import { availText, chargerHref, chargerName, cpoStyle, displayGroup, type Avail, type Car, type Charger, type Summary } from "@/lib/chargers";
 
 const euro = (n: number) => n.toFixed(2).replace(".", ",");
 
@@ -44,7 +44,7 @@ export function ChargerRow({ s, car }: { s: Summary; car: Car }) {
   const cost = car.electric && !doubtful ? s.best?.fill.cost ?? null : null;
   const t = availText(s.avail);
   return (
-    <Link href={`/cargador/${s.ch.id}`} className={`row-card${car.electric && !s.compatible ? " dim" : ""}`}>
+    <Link href={chargerHref(s.ch)} className={`row-card${car.electric && !s.compatible ? " dim" : ""}`}>
       <ChargerTile ch={s.ch} size={40} />
       <span className="col-2 grow min0">
         <span className="b15 ellipsis">{chargerName(s.ch)}</span>

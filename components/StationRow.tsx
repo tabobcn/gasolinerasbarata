@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { fmtKm, fmtPrice } from "@/lib/format";
+import { fmtKm, fmtPrice, shortStreet } from "@/lib/format";
 import type { FuelKey } from "@/lib/fuels";
 import { openStatus } from "@/lib/hours";
 import { levelFor } from "@/lib/savings";
@@ -22,7 +22,14 @@ export function StationRow({ s, fuel, avg }: { s: Station; fuel: FuelKey; avg: n
       <span className="col-2 grow min0">
         <span className="b15 ellipsis">{s.name}</span>
         <span className="muted sm ellipsis">
-          {fmtKm(s.dist)} · <span className={st.open === false ? "closed" : undefined}>{st.label}</span>
+          {fmtKm(s.dist)}
+          {st.open === false && (
+            <>
+              {" · "}
+              <span className="closed">{st.label}</span>
+            </>
+          )}
+          {s.address ? ` · ${shortStreet(s.address)}` : st.open !== false ? ` · ${st.label}` : ""}
         </span>
       </span>
       <span className="col-4 end">

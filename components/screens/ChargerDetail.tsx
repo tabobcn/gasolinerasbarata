@@ -18,6 +18,7 @@ import {
   availText,
   carFrom,
   chargerName,
+  datesText,
   cpoStyle,
   facilitiesText,
   fmtDateTime,
@@ -45,27 +46,29 @@ const euro = (n: number) => n.toFixed(2).replace(".", ",");
 const kw = (n: number) => `${String(Math.round(n * 10) / 10).replace(".", ",")} kW`;
 const groupLabel = (g: ConnGroup) => `${PLUG_LABEL[g.kind]} · ${kw(g.kw)} (${g.dc ? "rápida" : "AC"})`;
 
-export function ChargerDetail({ id }: { id: string }) {
+export function ChargerDetail({ id, group }: { id: string; group?: string | null }) {
+  // `group`: otros postes del mismo sitio que se enseñan en la misma ficha (?g=id2,id3)
+  const g = group ? `?g=${encodeURIComponent(group)}` : "";
   const router = useRouter();
   const [settings] = useSettings();
   const car = carFrom(settings);
   const { loc } = useLocation();
   const goTo = useNavigate();
-  const { data, error, loading, reload } = useJSON<ChargerDetailResponse>(`/api/chargers/${encodeURIComponent(id)}`);
+  const { data, error, loading, reload } = useJSON<ChargerDetailResponse>(`/api/chargers/${encodeURIComponent(id)}${g}`);
 
   const [live, setLive] = useState<LiveResponse | null>(null);
   const [liveState, setLiveState] = useState<"loading" | "ok" | "error">("loading");
   const fetchLive = useCallback(
     (force: boolean) => {
       setLiveState("loading");
-      getJSON<LiveResponse>(`/api/chargers/${encodeURIComponent(id)}/live`, force)
+      getJSON<LiveResponse>(`/api/chargers/${encodeURIComponent(id)}/live${g}`, force)
         .then((r) => {
           setLive(r);
           setLiveState("ok");
         })
         .catch(() => setLiveState("error"));
     },
-    [id],
+    [id, g],
   );
   useEffect(() => fetchLive(false), [fetchLive]);
 
@@ -295,9 +298,10 @@ export function ChargerDetail({ id }: { id: string }) {
         </section>
 
         <p className="source">
-          Fuente: Red Eléctrica de España (REVE, Registro de Vehículo Eléctrico). Datos del operador actualizados el {fmtDateTime(ch.updated)}; sincronizados el{" "}
-          {fmtDateTime(data?.updated)}.{lastCheck ? ` Disponibilidad consultada el ${fmtDateTime(lastCheck)}.` : ""} Los precios con IVA se calculan a partir de la tarifa sin IVA y el IVA
-          que publica el operador (si no lo indica, se muestra el precio tal cual); el tiempo y el coste de carga son aproximados.
+          Fuente: Red Eléctrica de España (REVE, Registro de Vehículo Eléctrico). Datos del operador actualizados el {fmtDateTime(ch.updated)}.{" "}
+          {datesText(data?.updated, data?.prices)}
+          {lastCheck ? ` Disponibilidad consultada el ${fmtDateTime(lastCheck)}.` : ""} Los precios con IVA se calculan a partir de la tarifa sin IVA y el IVA que
+          publica el operador (si no lo indica, se muestra el precio tal cual); el tiempo y el coste de carga son aproximados.
         </p>
       </div>
 

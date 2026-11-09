@@ -74,7 +74,7 @@ export function AlertsList() {
           </Link>
         </div>
         {!alerts.length && (
-          <EmptyState icon="bell" title="Sin alertas todavía" text="Te avisamos cuando el combustible baje del precio que elijas cerca de casa, del trabajo o de donde estés.">
+          <EmptyState icon="bell" title="Sin alertas todavía" text="Cada vez que abras la app comprobamos tus alertas y te avisamos si el combustible ha bajado del precio que elijas cerca de casa, del trabajo o de donde estés.">
             <Link href="/alertas/nueva" className="btn primary">
               Crear mi primera alerta
             </Link>
@@ -170,7 +170,7 @@ export function NewAlert() {
             <Icon name="bell" size={20} />
           </span>
           <span className="col-2 min0">
-            <span className="xs muted">Así te avisaremos</span>
+            <span className="xs muted">Así te avisaremos al abrir la app</span>
             <span className="b14">
               {fuelByKey(fuel)?.label} a {fmt2(threshold - 0.01)}9 € cerca de {zoneName}
             </span>

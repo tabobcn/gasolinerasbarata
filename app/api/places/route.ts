@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   if (q.length < 2) return NextResponse.json({ places: [] });
   const url = new URL("https://photon.komoot.io/api/");
   url.searchParams.set("q", q);
-  url.searchParams.set("limit", "8");
+  url.searchParams.set("limit", "15");
   url.searchParams.set("bbox", "-18.5,27.5,4.6,44");
   try {
     const res = await fetch(url, {
@@ -27,9 +27,18 @@ export async function GET(req: NextRequest) {
     const json = (await res.json()) as { features: PhotonFeature[] };
     const seen = new Set<string>();
     const places: Place[] = [];
-    for (const f of json.features) {
+    // Primero ciudades y pueblos, luego barrios y calles, y al final sitios concretos (estaciones, tiendas…)
+    const rank = (f: PhotonFeature) => {
+      const t = f.properties.type;
+      return t === "city" ? 0 : t === "district" || t === "locality" ? 1 : t === "street" ? 2 : 3;
+    };
+    const features = json.features.map((f, i) => ({ f, i })).sort((a, b) => rank(a.f) - rank(b.f) || a.i - b.i);
+    for (const { f } of features) {
       const p = f.properties;
       if (p.countrycode && p.countrycode !== "ES") continue;
+      // Provincias, comarcas y comunidades: su "centro" cae en mitad del campo y no sirve como destino
+      if (p.type === "county" || p.type === "state" || p.type === "country") continue;
+      if (p.osm_key === "emergency" || p.osm_key === "man_made" || p.osm_key === "power") continue;
       const street = [p.street, p.housenumber].filter(Boolean).join(" ");
       const label = p.name || street || p.city || "";
       if (!label) continue;

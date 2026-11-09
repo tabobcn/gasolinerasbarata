@@ -4,6 +4,7 @@ import { getRoute, parsePoint, samplePoints, waypointsFor } from "@/lib/routing"
 import { rpc } from "@/lib/supabase";
 import {
   EV_KWH_100KM,
+  groupSites,
   prettyCity,
   routeGroup,
   summarize,
@@ -27,6 +28,7 @@ async function chargersAlong(points: [number, number][]): Promise<ChargersRespon
     const sparse = points.filter((_, i) => i % 3 === 0);
     const seen = new Map<string, Charger>();
     let updated: string | null = null;
+    let prices: string | null = null;
     for (let i = 0; i < sparse.length; i += 8) {
       const batch = await Promise.all(
         sparse.slice(i, i + 8).map(([lat, lon]) =>
@@ -36,10 +38,11 @@ async function chargersAlong(points: [number, number][]): Promise<ChargersRespon
       for (const r of batch) {
         if (!r) continue;
         updated = r.updated ?? updated;
+        prices = r.prices ?? prices;
         for (const it of r.items) seen.set(it.id, it);
       }
     }
-    return { updated, items: [...seen.values()] };
+    return { updated, prices, items: [...seen.values()] };
   }
 }
 
@@ -68,12 +71,16 @@ export async function GET(req: NextRequest) {
     const route = await getRoute(from, to);
     const data = await chargersAlong(samplePoints(route, 2));
     const now = Date.now();
-    const corridor = data.items
+    const near = data.items
       .map((ch) => {
         const { dist, along } = distanceToPolyline(ch.lat, ch.lon, route.line, route.cum);
         return { ch: { ...ch, dist: Math.round(dist * 100) / 100 }, dist, along: along * route.scale };
       })
-      .filter((x) => x.dist <= CORRIDOR_KM);
+      .filter((x) => x.dist <= CORRIDOR_KM)
+      .sort((a, b) => a.dist - b.dist);
+    // Los postes del mismo sitio cuentan como una sola parada (manda el más cercano a la ruta)
+    const pos = new Map(near.map((x) => [x.ch.id, x]));
+    const corridor = groupSites(near.map((x) => x.ch)).map((ch) => ({ ch, dist: pos.get(ch.id)!.dist, along: pos.get(ch.id)!.along }));
 
     const scored = corridor
       .map((x) => {
@@ -100,6 +107,7 @@ export async function GET(req: NextRequest) {
       distanceKm: Math.round(route.distanceKm),
       durationMin: Math.round(route.durationMin),
       updated: data.updated,
+      prices: data.prices ?? null,
       considered: corridor.length,
       stops,
       waypoints: waypointsFor(
