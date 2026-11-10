@@ -29,7 +29,8 @@ let vapidCache: Vapid | null = null;
 async function vapid(): Promise<Vapid> {
   if (vapidCache) return vapidCache;
   const read = async () => {
-    const { data } = await supa.from("ev_private").select("v").eq("k", "vapid").maybeSingle();
+    const { data, error } = await supa.from("ev_private").select("v").eq("k", "vapid").maybeSingle();
+    if (error) throw new Error("No se pueden leer las claves"); // un fallo de lectura no es "no hay clave": no se genera otra
     return data?.v ? (JSON.parse(data.v) as Vapid) : null;
   };
   let v = await read();
@@ -59,7 +60,7 @@ function parseSub(raw: unknown): Sub | null {
   if (!endpoint || !p256dh || !auth || !B64.test(p256dh) || !B64.test(auth) || p256dh.length < 80 || auth.length < 16) return null;
   try {
     const u = new URL(endpoint);
-    if (u.protocol !== "https:" || !PUSH_HOSTS.some((re) => re.test(u.hostname))) return null;
+    if (u.protocol !== "https:" || u.port || u.username || !PUSH_HOSTS.some((re) => re.test(u.hostname))) return null;
   } catch {
     return null;
   }
@@ -121,10 +122,16 @@ async function save(body: Record<string, unknown>) {
   const favs = parseFavs(body.favs);
   const favFuels = parseFuels(body.favFuels);
   const disc = typeof body.disc === "string" ? body.disc.slice(0, 600) : "";
-  const { data: prev } = await supa.from("push_subs").select("id, auth, state").eq("endpoint", sub.endpoint).maybeSingle();
+  const { data: prev, error: prevErr } = await supa.from("push_subs").select("id, auth, state").eq("endpoint", sub.endpoint).maybeSingle();
+  if (prevErr) return json({ error: "No se ha podido guardar" }, 500);
+  // Una suscripción ya guardada solo la puede cambiar quien tenga su clave (igual que al borrar o probar)
+  if (prev && prev.auth !== sub.auth) return json({ error: "Suscripción no válida" }, 403);
   if (!prev) {
-    const { count } = await supa.from("push_subs").select("id", { count: "exact", head: true });
-    if ((count ?? 0) >= MAX_SUBS) return json({ error: "Ahora mismo no se pueden activar más avisos" }, 503);
+    const { count, error: countErr } = await supa.from("push_subs").select("id", { count: "exact", head: true });
+    if (countErr || (count ?? 0) >= MAX_SUBS) return json({ error: "Ahora mismo no se pueden activar más avisos" }, 503);
+    // Una suscripción nueva tiene que demostrar que existe: se le manda un aviso y solo se guarda si el servicio push lo acepta
+    const probe = await sendPush(sub, { title: "Avisos activados", body: "Te avisaremos cuando se cumpla una de tus alertas de precio.", url: "/alertas", tag: "alta" }, await vapid(), SITE, 600).catch(() => 0);
+    if (!(probe >= 200 && probe < 300)) return json({ error: "El navegador no ha confirmado la suscripción. Desactiva y vuelve a activar los avisos." }, 400);
   }
   const row = {
     endpoint: sub.endpoint,
@@ -177,6 +184,9 @@ type CheckAlert = { id: string; hit: boolean; price: number | null; title?: stri
 type CheckFav = { key: string; title: string; body: string; url: string };
 type CheckResponse = { day: string; alerts: CheckAlert[]; favs: CheckFav[] };
 
+/** Los avisos solo llevan a páginas de la propia web */
+const sitePath = (u: unknown) => (typeof u === "string" && /^\/(?!\/)/.test(u) ? u : "/alertas");
+
 const madridHour = () => Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", hour: "2-digit", hour12: false }).format(new Date())) % 24;
 
 // deno-lint-ignore no-explicit-any
@@ -213,7 +223,7 @@ async function checkOne(row: any, v: Vapid): Promise<{ sent: number; gone?: bool
       if (better && st.day !== data.day && r.title) {
         const price = r.price;
         queue.push({
-          payload: { title: r.title, body: r.body ?? "", url: r.url ?? "/alertas", tag: `alerta-${a.id}` },
+          payload: { title: r.title, body: r.body ?? "", url: sitePath(r.url), tag: `alerta-${a.id}` },
           apply: () => (state.a[a.id] = { sig: sigOf(a), hit: true, price, day: data.day }),
         });
       } else if (!st.hit) state.a[a.id] = { ...st, hit: true, price: st.price ?? r.price };
@@ -221,7 +231,7 @@ async function checkOne(row: any, v: Vapid): Promise<{ sent: number; gone?: bool
     } else state.a[a.id] = { sig: sigOf(a), hit: false, price: null, day: st.day };
   }
   for (const f of data.favs.filter((x) => !state.fav.includes(x.key)).slice(0, 3)) {
-    queue.push({ payload: { title: f.title, body: f.body, url: f.url, tag: f.key }, apply: () => state.fav.push(f.key) });
+    queue.push({ payload: { title: f.title, body: f.body, url: sitePath(f.url), tag: f.key }, apply: () => state.fav.push(f.key) });
   }
 
   let sent = 0;
@@ -256,6 +266,8 @@ async function check() {
   if (Deno.env.get("PUSH_NO_QUIET") !== "1" && (h >= QUIET_FROM || h < QUIET_TO)) return { ok: true, skipped: "de noche no se avisa" };
   const started = Date.now();
   const v = await vapid();
+  // Caducidad: la app renueva su suscripción cada semana al abrirse; 90 días sin renovar = abandonada
+  await supa.from("push_subs").delete().lt("updated_at", new Date(Date.now() - 90 * 86_400_000).toISOString());
   const { data: rows, error } = await supa.from("push_subs").select("*").order("checked_at", { ascending: true, nullsFirst: true }).limit(400);
   if (error) throw new Error(error.message);
   let sent = 0;
@@ -299,6 +311,7 @@ Deno.serve(async (req) => {
     if (action === "test") return await test(body);
     return json({ error: "Acción desconocida" }, 400);
   } catch (e) {
-    return json({ error: (e as Error).message }, 500);
+    console.error(e);
+    return json({ error: "Error interno" }, 500);
   }
 });

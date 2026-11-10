@@ -7,7 +7,7 @@ export const maxDuration = 30;
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const m = req.nextUrl.searchParams.get("m");
-  if (!/^\d+$/.test(id) || !m || !/^\d+$/.test(m)) {
+  if (!/^\d{1,6}$/.test(id) || !m || !/^\d{1,5}$/.test(m)) {
     return NextResponse.json({ error: "Faltan datos de la gasolinera" }, { status: 400 });
   }
   try {

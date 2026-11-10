@@ -21,29 +21,7 @@ const CORRIDOR_KM = 3;
 
 /** Todos los puntos de recarga a menos de CORRIDOR_KM del recorrido */
 async function chargersAlong(points: [number, number][]): Promise<ChargersResponse> {
-  try {
-    return await rpc<ChargersResponse>("chargers_in_boxes", { p_points: points, p_km: CORRIDOR_KM, p_limit: 3000 });
-  } catch {
-    // Plan B (si la función SQL aún no existe): búsquedas circulares a lo largo de la ruta
-    const sparse = points.filter((_, i) => i % 3 === 0);
-    const seen = new Map<string, Charger>();
-    let updated: string | null = null;
-    let prices: string | null = null;
-    for (let i = 0; i < sparse.length; i += 8) {
-      const batch = await Promise.all(
-        sparse.slice(i, i + 8).map(([lat, lon]) =>
-          rpc<ChargersResponse>("chargers_near", { p_lat: lat, p_lon: lon, p_radius_km: CORRIDOR_KM + 3, p_limit: 150 }).catch(() => null),
-        ),
-      );
-      for (const r of batch) {
-        if (!r) continue;
-        updated = r.updated ?? updated;
-        prices = r.prices ?? prices;
-        for (const it of r.items) seen.set(it.id, it);
-      }
-    }
-    return { updated, prices, items: [...seen.values()] };
-  }
+  return rpc<ChargersResponse>("chargers_in_boxes", { p_points: points, p_km: CORRIDOR_KM, p_limit: 3000 });
 }
 
 /** Puntos de recarga a lo largo de una ruta, ordenados por lo que cuesta cargar contando el desvío. */

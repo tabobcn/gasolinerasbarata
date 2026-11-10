@@ -22,12 +22,19 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || "/";
+  // Solo direcciones de esta misma web
+  let url = "/";
+  try {
+    const u = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin);
+    if (u.origin === self.location.origin) url = u.pathname + u.search;
+  } catch (e) {
+    url = "/";
+  }
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
       for (const c of list) {
         if ("focus" in c) {
-          c.navigate(url);
+          if ("navigate" in c) c.navigate(url).catch(() => {});
           return c.focus();
         }
       }

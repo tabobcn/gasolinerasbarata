@@ -467,7 +467,7 @@ function cleanCompany(op: string): string {
 }
 
 export function cpoStyle(party: string | null, operator: string | null): CpoStyle {
-  const known = party ? CPO[party] : undefined;
+  const known = party && Object.hasOwn(CPO, party) ? CPO[party] : undefined;
   if (known) return known;
   const name = cleanCompany(operator ?? party ?? "Punto de recarga");
   const words = name.replace(/[^A-Za-zÀ-ÿ0-9 ]/g, "").split(/\s+/).filter(Boolean);
@@ -511,7 +511,7 @@ const CAPS: Record<string, string> = {
 export function paymentMethods(ch: Charger): string[] {
   const set = new Set<string>();
   const brand = cpoStyle(ch.party, ch.operator).name;
-  for (const e of ch.evses) for (const c of e.cap ?? []) if (CAPS[c]) set.add(CAPS[c] === "App" ? `App ${brand}` : CAPS[c]);
+  for (const e of ch.evses) for (const c of e.cap ?? []) if (Object.hasOwn(CAPS, c)) set.add(CAPS[c] === "App" ? `App ${brand}` : CAPS[c]);
   return [...set];
 }
 
@@ -525,7 +525,7 @@ const PARKING: Record<string, string> = {
   ON_DRIVEWAY: "Acceso privado",
   ALONG_MOTORWAY: "Junto a la autovía",
 };
-export const parkingText = (p: string | null | undefined) => (p ? PARKING[p] ?? null : null);
+export const parkingText = (p: string | null | undefined) => (p && Object.hasOwn(PARKING, p) ? PARKING[p] : null);
 
 const FAC: Record<string, string> = {
   HOTEL: "Hotel",
@@ -549,7 +549,7 @@ const FAC: Record<string, string> = {
   FUEL_STATION: "Gasolinera",
   WIFI: "WiFi",
 };
-export const facilitiesText = (f: string[] | null | undefined) => (f ?? []).map((x) => FAC[x]).filter(Boolean) as string[];
+export const facilitiesText = (f: string[] | null | undefined) => (f ?? []).map((x) => (Object.hasOwn(FAC, x) ? FAC[x] : null)).filter(Boolean) as string[];
 
 const DAY = ["", "L", "M", "X", "J", "V", "S", "D"];
 

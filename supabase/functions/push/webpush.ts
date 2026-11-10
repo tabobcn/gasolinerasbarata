@@ -85,6 +85,7 @@ export async function sendPush(t: PushTarget, payload: unknown, v: Vapid, subjec
       Urgency: "normal",
     },
     body,
+    redirect: "manual",
     signal: AbortSignal.timeout(15_000),
   });
   await res.body?.cancel().catch(() => {});

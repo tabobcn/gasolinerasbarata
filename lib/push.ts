@@ -126,8 +126,9 @@ export async function disablePush(): Promise<void> {
     const sub = await reg?.pushManager.getSubscription();
     if (!sub) return;
     const k = keysOf(sub);
+    // Primero se borra en el servidor (con un reintento); después se da de baja el navegador
+    await api({ action: "remove", endpoint: k.endpoint, auth: k.auth }).catch(() => api({ action: "remove", endpoint: k.endpoint, auth: k.auth }).catch(() => {}));
     await sub.unsubscribe().catch(() => {});
-    await api({ action: "remove", endpoint: k.endpoint, auth: k.auth }).catch(() => {});
   } catch {
     /* ya no había suscripción */
   }
