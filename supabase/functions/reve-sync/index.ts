@@ -1,6 +1,6 @@
 // Sincroniza los puntos de recarga de REVE (Red Eléctrica de España) en Supabase.
 // Lo lanza pg_cron cada 2 minutos. Estado: solo cambios cada 10 min. Ubicaciones: cambios cada hora
-// y listado completo cada 24 h. Tarifas: listado completo cada 12 h.
+// y listado completo cada 24 h. Tarifas: listado completo cada 12 h (y se borran las que REVE deja de publicar).
 // Respeta los límites de REVE: 1.000 peticiones/hora por clave
 // (ventana deslizante de 1 hora: la sincronización usa como máximo 650 y el estado en directo 300)
 // y 5 peticiones por URL y hora (si algo falla, se espera de 15 min a 6 h antes de reintentar).
@@ -341,6 +341,13 @@ async function run() {
             // Tras la pasada completa diaria: borrar lo que REVE ya no publica
             const { data: removed } = await supa.rpc("ev_cleanup", {});
             report.push({ resource: r.name, removed });
+          }
+          if (r.name === "tariffs" && s.pass_started && !s.last_error?.startsWith("Página")) {
+            // Tarifas que REVE ya no publica: 3 días sin salir en ningún listado completo.
+            // Solo tras una pasada sin páginas saltadas, para no borrar por un fallo de REVE.
+            const cutoff = new Date(Date.parse(s.pass_started) - 3 * 86_400_000).toISOString();
+            const { count } = await supa.from("ev_tariffs").delete({ count: "exact" }).lt("synced_at", cutoff);
+            report.push({ resource: r.name, removed: count ?? 0 });
           }
         }
         s.phase = "idle";

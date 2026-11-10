@@ -13,3 +13,6 @@ export const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_KEY || "sb_publisha
 
 /** Dirección pública de la web (para Google: sitemap, enlaces canónicos). Cámbiala si pones dominio propio. */
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://gasolinerasbarata.vercel.app").replace(/\/$/, "");
+
+/** Correo de contacto que se enseña en la página "Fuentes y privacidad" */
+export const CONTACT_EMAIL = "tabobcn@gmail.com";

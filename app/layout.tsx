@@ -5,6 +5,8 @@ import "./globals.css";
 import { LocationProvider } from "@/components/LocationProvider";
 import { NavigateProvider } from "@/components/NavigateProvider";
 import { SwRegister } from "@/components/SwRegister";
+import { PushSync } from "@/components/PushSync";
+import { Analytics } from "@vercel/analytics/next";
 import { APP_NAME, APP_DESCRIPTION, SITE_URL } from "@/lib/config";
 
 const manrope = Manrope({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], display: "swap", variable: "--font-manrope" });
@@ -39,6 +41,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </NavigateProvider>
         </LocationProvider>
         <SwRegister />
+        <PushSync />
+        {/* Estadísticas de visitas anónimas y sin cookies (hay que activarlas en el panel de Vercel) */}
+        <Analytics />
       </body>
     </html>
   );

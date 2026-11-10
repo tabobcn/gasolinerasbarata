@@ -5,6 +5,7 @@ import { BottomNav } from "@/components/ui";
 import { Crumbs, SeoStationRow, SummaryTable } from "@/components/seo/SeoBits";
 import { cheapestList, fmtLongDate, fuelSummary, municipalitiesOf, provinceBySlug, provinceData, provinceSlug, SEO_FUELS, type Municipality } from "@/lib/seo";
 import { haversineKm } from "@/lib/geo";
+import { areasOf, chargerGrid, countNear } from "@/lib/seoChargers";
 import { SITE_URL } from "@/lib/config";
 import { fmtPrice } from "@/lib/format";
 import { fuelByKey } from "@/lib/fuels";
@@ -71,6 +72,11 @@ export default async function Page({ params }: Props) {
   const spot = g95.cheapest ?? goa.cheapest ?? mun;
   const appHere = `lat=${spot.lat.toFixed(4)}&lon=${spot.lon.toFixed(4)}`;
   const cents = (a: number, b: number) => Math.round((b - a) * 100);
+  // ¿Hay cargadores en el municipio? Entonces se enlaza su página; si no, la búsqueda de la app
+  const evArea = areasOf([mun], here).get(mun.id)!;
+  const evCount = await chargerGrid()
+    .then((g) => countNear(g, evArea.lat, evArea.lon, evArea.km))
+    .catch(() => 0);
 
   return (
     <div className="screen with-nav">
@@ -97,9 +103,15 @@ export default async function Page({ params }: Props) {
           <a href={`/?${appHere}`} className="btn primary grow">
             Abrir en la app
           </a>
-          <a href={`/carga?${appHere}`} className="btn soft grow">
-            Cargadores
-          </a>
+          {evCount > 0 ? (
+            <Link href={`/cargadores/${slug}/${mun.slug}`} className="btn soft grow">
+              Cargadores en {mun.name}
+            </Link>
+          ) : (
+            <a href={`/carga?${appHere}`} className="btn soft grow">
+              Cargadores
+            </a>
+          )}
         </div>
 
         <SummaryTable rows={sums} compare={provAvg} />

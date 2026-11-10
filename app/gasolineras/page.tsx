@@ -34,7 +34,10 @@ export default function Page() {
             </li>
           ))}
         </ul>
-        <p className="source">Fuente: Ministerio para la Transición Ecológica y el Reto Demográfico (Geoportal de Gasolineras).</p>
+        <p className="source">
+          Fuente: Ministerio para la Transición Ecológica y el Reto Demográfico (Geoportal de Gasolineras). <Link href="/cargadores">Cargadores para coche eléctrico por provincia</Link> ·{" "}
+          <Link href="/privacidad">Fuentes y privacidad</Link>
+        </p>
       </div>
       <BottomNav />
     </div>

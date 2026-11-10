@@ -16,7 +16,23 @@ Proyecto de Supabase: **gasolineras** (`qdutgibdyrrwwhpzvwja`, París).
   - `reve-sync`: descarga de REVE ubicaciones, tarifas y estado operativo. La lanza `pg_cron` cada 2 minutos
     (job `reve-sync-cada-5-min`) con la cabecera `x-sync-token` guardada en `ev_private`.
   - `reve-live`: estado en tiempo real (libre / cargando) de los puntos de una ubicación. Guarda el resultado 15 min.
+  - `push`: avisos de las alertas de precio con la app cerrada (ver más abajo).
+- `ev_points()` → coordenadas de todas las ubicaciones; con ella las páginas `/cargadores/...` y el sitemap saben qué
+  municipios tienen cargadores.
 - **Secretos** de las edge functions: `REVE_API_KEY` (la clave personal de REVE; no va en el código ni en Git).
+
+## Avisos push (alertas de precio con la app cerrada)
+
+- La app (pantalla Alertas → «Avisarme con la app cerrada») suscribe el navegador y manda a `push` esa suscripción con
+  las alertas. Se guarda en la tabla privada `push_subs` (sin nombre, correo ni teléfono).
+- `pg_cron` (job `push-check-cada-30-min`, minutos 7 y 37) llama a `push?action=check`. Por cada suscripción pregunta a
+  la web (`/api/alerts/check`, la misma lógica que usa la app al abrirse) y manda un aviso si una alerta empieza a
+  cumplirse o baja 1 céntimo más. Como mucho un aviso por alerta y día, y nada de 23:00 a 7:00.
+- Las claves del servidor de avisos (VAPID) las genera la propia función la primera vez y las guarda en `ev_private`
+  (`k = 'vapid'`). Si se borran, todos los móviles tendrían que volver a activar los avisos.
+- Una suscripción se borra al desactivar los avisos en la app o cuando el navegador la da de baja (respuesta 404/410).
+- Para ver cómo va: `select created_at, checked_at, last_push_at, last_status, fails from push_subs;`
+  (`last_status` 201 = el servicio push del navegador aceptó el aviso).
 
 ## Cada cuánto se actualiza
 
@@ -29,7 +45,8 @@ Proyecto de Supabase: **gasolineras** (`qdutgibdyrrwwhpzvwja`, París).
 
 Las tarifas no usan el modo incremental porque `/connectors/tariffs?date_from=…` devuelve HTTP 504 casi siempre.
 Si una página del listado falla 3 veces seguidas se salta (queda anotado en `ev_sync_state.last_error` hasta la
-siguiente pasada) para que un fallo puntual de REVE no deje los precios parados.
+siguiente pasada) para que un fallo puntual de REVE no deje los precios parados. Tras una pasada sin páginas saltadas
+se borran las tarifas que llevan 3 días sin aparecer (REVE ya no las publica).
 
 Para ver cómo va: `select * from ev_sync_state;` en el editor SQL del panel de Supabase.
 
@@ -53,4 +70,5 @@ actualización (la web enseña la de los precios y la del estado en la lista, en
 ```bash
 supabase functions deploy reve-sync --no-verify-jwt --project-ref qdutgibdyrrwwhpzvwja
 supabase functions deploy reve-live --no-verify-jwt --project-ref qdutgibdyrrwwhpzvwja
+supabase functions deploy push --no-verify-jwt --project-ref qdutgibdyrrwwhpzvwja
 ```

@@ -1698,3 +1698,9 @@ button {
 .seo-table tbody th { font-weight: 700; }
 .seo .source a { color: var(--green); }
 .seo .btn.soft { background: var(--surface); }
+
+/* Página de fuentes y privacidad */
+.legal .legal-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 1.5; }
+.legal p { margin: 0; line-height: 1.5; }
+.legal a { color: var(--green); font-weight: 700; }
+.source a { color: var(--green); font-weight: 700; }

@@ -51,7 +51,7 @@ export function MapScreen() {
   const libRef = useRef<typeof ML | null>(null);
   const markersRef = useRef<ML.Marker[]>([]);
   const meRef = useRef<ML.Marker | null>(null);
-  const [zoom, setZoom] = useState(13);
+  const [compact, setCompact] = useState(false); // con el mapa alejado, puntos en vez de etiquetas
   const [center, setCenter] = useState<{ lat: number; lon: number } | null>(null); // centro de la consulta
   const [moved, setMoved] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
@@ -136,14 +136,16 @@ export function MapScreen() {
       });
       map.touchZoomRotate.disableRotation();
       map.addControl(new lib.AttributionControl({ compact: true }), "top-right");
-      map.on("zoomend", () => setZoom(map.getZoom()));
+      // Solo se repintan los pines al cruzar el umbral, no en cada cambio de zoom
+      map.on("zoomend", () => setCompact(map.getZoom() < 12.5));
       map.on("moveend", () => setMoved(true));
       map.on("load", () => {
         // atribución plegada en el botón "i" para no tapar el mapa en el móvil
         el.current?.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
-        setReady(true);
       });
       mapRef.current = map;
+      // Los pines con los precios no esperan a que se descargue el dibujo del mapa (en móviles lentos tarda)
+      setReady(true);
     })();
     return () => {
       cancelled = true;
@@ -174,7 +176,6 @@ export function MapScreen() {
     if (!lib || !map || !ready) return;
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
-    const compact = zoom < 12.5;
     if (mode === "charge") {
       const selId = selCh?.ch.id;
       const ordered = [...chargers].sort((a, b) => (a.ch.id === selId ? 1 : 0) - (b.ch.id === selId ? 1 : 0));
@@ -238,7 +239,7 @@ export function MapScreen() {
       const m = new lib.Marker({ element: wrap, anchor: compact && !on ? "center" : "bottom" }).setLngLat([s.lon, s.lat]).addTo(map);
       markersRef.current.push(m);
     }
-  }, [stations, fuel, avg, selected?.id, zoom, ready, mode, chargers, selCh?.ch.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stations, fuel, avg, selected?.id, compact, ready, mode, chargers, selCh?.ch.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mi posición
   useEffect(() => {

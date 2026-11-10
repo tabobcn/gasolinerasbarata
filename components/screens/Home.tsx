@@ -233,6 +233,8 @@ export function Home() {
             <Link href="/gasolineras" className="green">
               Precios por provincia y municipio
             </Link>
+            {" · "}
+            <Link href="/privacidad">Fuentes y privacidad</Link>
           </p>
         )}
       </div>

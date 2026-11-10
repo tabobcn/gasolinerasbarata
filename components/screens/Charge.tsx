@@ -319,7 +319,7 @@ export function Charge() {
         {data && (
           <p className="source">
             Fuente: Red Eléctrica de España (REVE, Registro de Vehículo Eléctrico). {datesText(data.updated, data.prices)} Precios con IVA (cuando el operador lo indica) calculados a partir de la tarifa
-            que publica cada operador; el tiempo de carga es aproximado. Distancias en línea recta.
+            que publica cada operador; el tiempo de carga es aproximado. Distancias en línea recta. <Link href="/cargadores">Cargadores por provincia</Link> · <Link href="/privacidad">Fuentes y privacidad</Link>
           </p>
         )}
       </div>

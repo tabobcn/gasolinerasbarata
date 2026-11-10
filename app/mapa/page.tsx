@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { preconnect } from "react-dom";
 import { MapScreen } from "@/components/screens/MapScreen";
 
 export const metadata: Metadata = {
@@ -7,5 +8,6 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
+  preconnect("https://tiles.openfreemap.org", { crossOrigin: "anonymous" }); // adelanta la conexión con el servidor del mapa
   return <MapScreen />;
 }

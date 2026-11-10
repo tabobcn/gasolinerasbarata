@@ -108,7 +108,10 @@ export default async function Page({ params }: Props) {
             ))}
           </p>
         </section>
-        <p className="source">Fuente: Ministerio para la Transición Ecológica y el Reto Demográfico (Geoportal de Gasolineras). Precios por litro con impuestos.</p>
+        <p className="source">
+          Fuente: Ministerio para la Transición Ecológica y el Reto Demográfico (Geoportal de Gasolineras). Precios por litro con impuestos.{" "}
+          <Link href={`/cargadores/${slug}`}>Cargadores para coche eléctrico en {p.name}</Link>
+        </p>
       </div>
       <BottomNav />
     </div>

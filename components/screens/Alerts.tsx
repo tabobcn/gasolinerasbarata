@@ -15,6 +15,7 @@ import { fmtKm, fmtPrice } from "@/lib/format";
 import type { StationsResponse } from "@/lib/types";
 import { useDiscounts } from "@/lib/discountStore";
 import { applyDiscounts } from "@/lib/discounts";
+import { disablePush, enablePush, pushSupport, testPush, usePush, type PushSupport } from "@/lib/push";
 
 /* ---------- Lista de alertas ---------- */
 
@@ -58,12 +59,79 @@ function AlertCard({ a }: { a: PriceAlert }) {
   );
 }
 
+/** Interruptor de avisos con la app cerrada (push) */
+function PushCard() {
+  const [push] = usePush();
+  const [support, setSupport] = useState<PushSupport | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  useEffect(() => setSupport(pushSupport()), []);
+  if (support == null) return null;
+
+  if (support !== "ok") {
+    return (
+      <div className="note blue">
+        <Icon name="info" size={18} />
+        <span>
+          Las alertas se comprueban cada vez que abres la app.{" "}
+          {support === "ios-install"
+            ? "Para que te avisemos con la app cerrada en iPhone, añádela a la pantalla de inicio (Compartir → Añadir a pantalla de inicio) y activa los avisos desde ahí."
+            : "Este navegador no admite avisos con la app cerrada."}
+        </span>
+      </div>
+    );
+  }
+
+  const toggle = async () => {
+    setBusy(true);
+    setMsg(null);
+    if (push.on) {
+      await disablePush();
+      setMsg({ text: "Avisos desactivados. Las alertas se siguen comprobando al abrir la app.", ok: true });
+    } else {
+      const r = await enablePush();
+      setMsg(r.ok ? { text: "Listo. Te avisaremos aunque tengas la app cerrada.", ok: true } : { text: r.msg, ok: false });
+    }
+    setBusy(false);
+  };
+  const test = async () => {
+    setBusy(true);
+    setMsg(null);
+    const r = await testPush();
+    setMsg(r.ok ? { text: "Aviso de prueba enviado: debería llegarte en unos segundos.", ok: true } : { text: r.msg, ok: false });
+    setBusy(false);
+  };
+
+  return (
+    <div className="card stack-12">
+      <label className="row-12 toggle-row">
+        <span className="col-2 grow min0">
+          <span className="b14">Avisarme con la app cerrada</span>
+          <span className="muted b12">Miramos los precios cada media hora, de 7:00 a 23:00, y te llega un aviso al móvil si se cumple una alerta.</span>
+        </span>
+        <input type="checkbox" className="switch" checked={push.on} disabled={busy} onChange={toggle} />
+      </label>
+      {push.on && (
+        <button type="button" className="btn soft small" onClick={test} disabled={busy}>
+          <Icon name="bell" size={16} /> Enviar aviso de prueba
+        </button>
+      )}
+      {msg && (
+        <span className={`b12 ${msg.ok ? "muted" : "tone-red"}`} role="status">
+          {msg.text}
+        </span>
+      )}
+      {!push.on && (
+        <Link href="/privacidad#avisos" className="b12 green">
+          Qué guardamos para poder avisarte
+        </Link>
+      )}
+    </div>
+  );
+}
+
 export function AlertsList() {
   const [alerts] = useAlerts();
-  const [perm, setPerm] = useState<NotificationPermission | "unsupported">("default");
-  useEffect(() => {
-    setPerm(typeof Notification === "undefined" ? "unsupported" : Notification.permission);
-  }, []);
   return (
     <div className="screen with-nav">
       <div className="stack-16 pad-x top">
@@ -74,7 +142,7 @@ export function AlertsList() {
           </Link>
         </div>
         {!alerts.length && (
-          <EmptyState icon="bell" title="Sin alertas todavía" text="Cada vez que abras la app comprobamos tus alertas y te avisamos si el combustible ha bajado del precio que elijas cerca de casa, del trabajo o de donde estés.">
+          <EmptyState icon="bell" title="Sin alertas todavía" text="Te avisamos si el combustible baja del precio que elijas cerca de casa, del trabajo o de donde estés: al abrir la app o, si lo activas, también con la app cerrada.">
             <Link href="/alertas/nueva" className="btn primary">
               Crear mi primera alerta
             </Link>
@@ -83,15 +151,7 @@ export function AlertsList() {
         {alerts.map((a) => (
           <AlertCard key={a.id} a={a} />
         ))}
-        {alerts.length > 0 && (
-          <div className="note blue">
-            <Icon name="info" size={18} />
-            <span>
-              Las alertas se comprueban cada vez que abres la app
-              {perm === "granted" ? " y te llega un aviso del sistema." : perm === "denied" ? ". Tienes los avisos bloqueados en el navegador." : "."} Para avisos con la app cerrada hará falta un pequeño servidor (fase 2).
-            </span>
-          </div>
-        )}
+        {alerts.length > 0 && <PushCard />}
       </div>
       <BottomNav />
     </div>
@@ -170,7 +230,7 @@ export function NewAlert() {
             <Icon name="bell" size={20} />
           </span>
           <span className="col-2 min0">
-            <span className="xs muted">Así te avisaremos al abrir la app</span>
+            <span className="xs muted">Así te avisaremos</span>
             <span className="b14">
               {fuelByKey(fuel)?.label} a {fmt2(threshold - 0.01)}9 € cerca de {zoneName}
             </span>

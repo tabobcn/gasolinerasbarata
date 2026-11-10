@@ -8,6 +8,7 @@ import { alertsStore, createPersisted, favoritesStore, placesStore, type PriceAl
 import type { Prices, Station, StationsResponse } from "./types";
 import { discountsStore } from "./discountStore";
 import { applyDiscounts } from "./discounts";
+import { pushStore } from "./push";
 
 export type AlertMatch = {
   key: string;
@@ -55,6 +56,8 @@ const favNotified = createPersisted<string[]>("gc.favNotified", []);
 function notify(m: AlertMatch) {
   try {
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    // Con los avisos push activados ya avisa el servidor (así no llega el mismo aviso dos veces)
+    if (pushStore.get().on) return;
     const url = `/gasolinera/${m.station.id}?m=${m.station.munId}`;
     if (navigator.serviceWorker?.controller || navigator.serviceWorker) {
       navigator.serviceWorker.getRegistration().then((reg) => {
