@@ -184,7 +184,7 @@ export default async function Page({ params }: Props) {
                       </span>
                       <span className="col-2 end">
                         <span className={`price-sm${x.price != null ? " blue-ink" : " muted"}`}>{x.price != null ? `${euro(x.price)} €` : "—"}</span>
-                        <span className="muted b12 nowrap">{x.price == null ? "sin precio" : x.doubtful ? "a confirmar" : "por kWh"}</span>
+                        <span className="muted b12 nowrap">{x.note === "IVA incl." ? "kWh · IVA incl." : x.note}</span>
                       </span>
                     </Link>
                   </li>
@@ -212,7 +212,7 @@ export default async function Page({ params }: Props) {
         )}
         <p className="source">
           Fuente: Red Eléctrica de España (REVE, Registro de Vehículo Eléctrico). {datesText(ev.updated, ev.prices)} Precio por kWh con IVA cuando el operador lo
-          indica, tal como lo publica cada operador; un precio «a confirmar» es demasiado bajo para ser real. REVE no indica el municipio de cada punto: se
+          indica; si no lo indica, se muestra tal como lo publica. Un precio «a confirmar» es demasiado bajo para ser real y uno «de 2025» lleva más de un año sin actualizarse. REVE no indica el municipio de cada punto: se
           muestran los que están a menos de {String(area.km).replace(".", ",")} km del centro. <Link href={`/cargadores/${slug}`}>Toda la provincia de {p.name}</Link>.
         </p>
       </div>

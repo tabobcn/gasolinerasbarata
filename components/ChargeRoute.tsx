@@ -9,7 +9,7 @@ import { navUrl } from "./NavigateProvider";
 import { useSettings } from "@/lib/store";
 import { r3, useJSON } from "@/lib/useJSON";
 import { fmtMinutes } from "@/lib/format";
-import { availText, carFrom, chargerHref, chargerName, datesText, PLUG_LABEL, routeGroup, summarize, type ChargerRouteResponse } from "@/lib/chargers";
+import { availText, carFrom, chargerHref, chargerName, datesText, doubtText, priceNote, PLUG_LABEL, routeGroup, summarize, type ChargerRouteResponse } from "@/lib/chargers";
 
 type Pt = { lat: number; lon: number; label: string };
 
@@ -142,7 +142,8 @@ export function ChargeRoute({ origin, to }: { origin: Pt; to: Pt }) {
                 )}
                 <span className={`b12 tone-${availText(best.s.avail).tone}`}>{availText(best.s.avail).text}</span>
               </div>
-              {best.g.doubtful && <span className="muted b12">Precio a confirmar en la app del operador: es demasiado bajo para ser real</span>}
+              {best.g.doubtful && <span className="muted b12">{doubtText(best.g)}</span>}
+              {!best.g.doubtful && !best.g.vatKnown && best.g.price != null && <span className="muted b12">El operador no indica si el precio lleva IVA.</span>}
               <div className="saving-box">
                 Cargar {target(best.g.dc)}:{" "}
                 <strong>
@@ -175,7 +176,7 @@ export function ChargeRoute({ origin, to }: { origin: Pt; to: Pt }) {
                 <span className="col-2 end">
                   <span className={`price-sm${g.price != null ? " blue-ink" : " muted"}`}>{g.price != null ? `${euro(g.price)} €` : "—"}</span>
                   <span className="muted b12 nowrap">
-                    {g.doubtful ? "a confirmar · " : g.trip.cost != null ? `${euro(g.trip.cost)} € · ` : ""}
+                    {g.doubtful || !g.vatKnown ? `${priceNote(g)} · ` : g.trip.cost != null ? `${euro(g.trip.cost)} € · ` : ""}
                     {fmtMinutes(g.trip.minutes)}
                   </span>
                 </span>

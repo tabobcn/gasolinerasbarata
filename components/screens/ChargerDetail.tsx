@@ -34,6 +34,8 @@ import {
   summarize,
   hasPrice,
   vatPct,
+  doubtText,
+  priceNote,
   tariffLines,
   zeroOnly,
   type Charger,
@@ -182,7 +184,7 @@ export function ChargerDetail({ id, group }: { id: string; group?: string | null
                   </span>
                   <span className="col-0 end">
                     <span className={`price-sm${g.compatible && !g.doubtful ? " blue-ink" : " muted"}`}>{g.price != null ? fmtKwhPrice(g.price) : "—"}</span>
-                    {g.doubtful && <span className="muted b12">a confirmar</span>}
+                    {g.price != null && <span className="muted b12">{priceNote(g)}</span>}
                   </span>
                 </button>
               );
@@ -211,7 +213,7 @@ export function ChargerDetail({ id, group }: { id: string; group?: string | null
                 </span>
               </span>
             </span>
-            {sel.doubtful && <span className="b12 soft-text">Ojo: el precio que publica el operador en REVE es demasiado bajo para ser real. Confírmalo en su app.</span>}
+            {sel.doubtful && <span className="b12 soft-text">{doubtText(sel)}</span>}
             {sel.kw > sel.fill.kw + 0.05 && (
               <span className="b12 soft-text">
                 El cargador da {kw(sel.kw)}, pero tu coche carga como máximo a {kw(sel.fill.kw)}
@@ -261,7 +263,7 @@ export function ChargerDetail({ id, group }: { id: string; group?: string | null
             )}
             {hasPrice(sel.conn) && (
               <span className="muted xs">
-                {vatPct(sel.conn.v) != null ? `Precios con IVA (${vatPct(sel.conn.v)} %)` : "El operador no indica IVA: precio tal cual lo publica"}
+                {vatPct(sel.conn.v) != null ? `Precios con IVA (${vatPct(sel.conn.v)} %)` : "El operador no indica si lleva IVA: se muestra el precio tal cual lo publica"}
                 {sel.conn.tu ? ` · tarifa publicada el ${fmtDateTime(sel.conn.tu)}` : ""}
               </span>
             )}

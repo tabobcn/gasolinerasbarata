@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { fmtKm } from "@/lib/format";
-import { availText, chargerHref, chargerName, cpoStyle, displayGroup, type Avail, type Car, type Charger, type Summary } from "@/lib/chargers";
+import { availText, chargerHref, chargerName, cpoStyle, displayGroup, priceNote, type Avail, type Car, type Charger, type Summary } from "@/lib/chargers";
 
 const euro = (n: number) => n.toFixed(2).replace(".", ",");
 
@@ -57,7 +57,7 @@ export function ChargerRow({ s, car }: { s: Summary; car: Car }) {
       </span>
       <span className="col-2 end">
         <span className={`price-sm${price != null ? " blue-ink" : " muted"}`}>{price != null ? `${euro(price)} €` : "—"}</span>
-        <span className="muted b12 nowrap">{doubtful ? "a confirmar" : cost != null ? `${euro(cost)} € lleno` : price != null ? "por kWh" : "sin precio"}</span>
+        <span className="muted b12 nowrap">{pg && (doubtful || !pg.vatKnown) ? priceNote(pg) : cost != null ? `${euro(cost)} € lleno` : price != null ? "kWh · IVA incl." : "sin precio"}</span>
       </span>
     </Link>
   );

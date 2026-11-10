@@ -237,7 +237,9 @@ export type ConnGroup = {
   evses: Evse[];
   compatible: boolean;
   price: number | null; // €/kWh con IVA
-  doubtful: boolean; // precio sospechosamente bajo: se enseña, pero no se pone el primero
+  doubtful: boolean; // precio a confirmar (demasiado bajo o sin actualizar en más de un año): se enseña, pero no se pone el primero
+  why: "low" | "old" | null; // por qué hay que confirmarlo
+  vatKnown: boolean; // el operador indica el IVA (si no, no sabemos si el precio lo lleva)
   fill: FillEstimate;
 };
 
@@ -247,6 +249,25 @@ export type ConnGroup = {
  */
 export const DOUBTFUL_KWH = 0.15;
 export const isDoubtful = (p: number | null) => p != null && p < DOUBTFUL_KWH;
+
+/** Una tarifa que el operador no toca desde hace más de un año puede no ser ya la real */
+export const STALE_MS = 365 * 86_400_000;
+export const isStale = (c: Conn, now = Date.now()) => !!c.tu && now - Date.parse(c.tu) > STALE_MS;
+
+/** Etiqueta corta junto al precio: qué sabemos de él */
+export function priceNote(g: Pick<ConnGroup, "price" | "why" | "vatKnown" | "conn">): string {
+  if (g.price == null) return "sin precio";
+  if (g.why === "low") return "a confirmar";
+  if (g.why === "old") return `precio de ${new Date(g.conn.tu!).getFullYear()}`;
+  return g.vatKnown ? "IVA incl." : "IVA no indicado";
+}
+
+/** Aviso largo cuando el precio hay que confirmarlo */
+export function doubtText(g: Pick<ConnGroup, "why" | "conn">): string {
+  return g.why === "old"
+    ? `El operador no actualiza esta tarifa desde ${new Date(g.conn.tu!).getFullYear()}: confirma el precio en su app antes de ir.`
+    : "Precio a confirmar en la app del operador: es demasiado bajo para ser real.";
+}
 
 /** Agrupa por enchufe + potencia + tarifa (lo que el usuario ve como "Tipo 2 · 22 kW") */
 export function groups(ch: Charger, car: Car): ConnGroup[] {
@@ -270,7 +291,9 @@ export function groups(ch: Charger, car: Car): ConnGroup[] {
         evses: [e],
         compatible: compatible(c, car),
         price: priceKwh(c),
-        doubtful: isDoubtful(priceKwh(c)),
+        doubtful: isDoubtful(priceKwh(c)) || (hasPrice(c) && isStale(c)),
+        why: isDoubtful(priceKwh(c)) ? "low" : hasPrice(c) && isStale(c) ? "old" : null,
+        vatKnown: vatPct(c.v) != null,
         fill: fillEstimate(c, car),
       });
     }

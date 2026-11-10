@@ -13,7 +13,7 @@ import { r3, stationsUrl, useJSON } from "@/lib/useJSON";
 import type { StationsResponse } from "@/lib/types";
 import { average, CONSUMPTION_L_100KM } from "@/lib/savings";
 import { fmtKm, fmtMinutes } from "@/lib/format";
-import {
+import { doubtText,
   carFrom,
   chargerHref,
   chargerName,
@@ -229,7 +229,8 @@ export function Charge() {
             ) : (
               <span className="b15 muted">Precio no disponible en REVE</span>
             )}
-            {hg.doubtful && <span className="muted b12">Precio a confirmar en la app del operador: es demasiado bajo para ser real</span>}
+            {hg.doubtful && <span className="muted b12">{doubtText(hg)}</span>}
+            {!hg.doubtful && !hg.vatKnown && hg.price != null && <span className="muted b12">El operador no indica si el precio lleva IVA.</span>}
             <div className="saving-box">
               Llenar del 20 al 100 %:{" "}
               <strong>

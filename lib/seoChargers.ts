@@ -1,7 +1,7 @@
 import "server-only";
 import { SUPABASE_KEY, SUPABASE_URL } from "./config";
 import { haversineKm } from "./geo";
-import { chargerName, displayGroup, groupSites, shortAddress, summarize, type Car, type Charger, type ChargersResponse, type Summary } from "./chargers";
+import { chargerName, displayGroup, groupSites, priceNote, shortAddress, summarize, type Car, type Charger, type ChargersResponse, type Summary } from "./chargers";
 import type { Municipality } from "./seo";
 import type { Station } from "./types";
 
@@ -58,7 +58,7 @@ export function areasOf(muns: Municipality[], stations: Station[]): Map<string, 
   return new Map(muns.map((m) => [m.id, { lat: m.lat, lon: m.lon, km: Math.min(8, Math.max(2, Math.round(((far.get(m.id) ?? 0) + 1) * 2) / 2)) }]));
 }
 
-export type SeoSite = { s: Summary; name: string; address: string; price: number | null; doubtful: boolean; maxKw: number; points: number };
+export type SeoSite = { s: Summary; name: string; address: string; price: number | null; doubtful: boolean; note: string; maxKw: number; points: number };
 export type AreaChargers = { updated: string | null; prices: string | null; sites: SeoSite[]; points: number };
 
 /** Sitios de recarga de una zona, ordenados por precio (primero los que publican un precio creíble) */
@@ -76,7 +76,7 @@ export async function areaChargers(a: Area): Promise<AreaChargers> {
   const sites = groupSites(data.items).map((ch: Charger) => {
     const s = summarize(ch, ANY_CAR, now);
     const g = displayGroup(s, ANY_CAR);
-    return { s, name: chargerName(ch), address: shortAddress(ch.address), price: g?.price ?? null, doubtful: g?.doubtful ?? false, maxKw: s.maxKw, points: ch.evses.length };
+    return { s, name: chargerName(ch), address: shortAddress(ch.address), price: g?.price ?? null, doubtful: g?.doubtful ?? false, note: g ? priceNote(g) : "sin precio", maxKw: s.maxKw, points: ch.evses.length };
   });
   const rank = (x: SeoSite) => (x.price != null && !x.doubtful ? 0 : x.price != null ? 1 : 2);
   sites.sort((x, y) => rank(x) - rank(y) || (x.price ?? 0) - (y.price ?? 0) || (x.s.ch.dist ?? 0) - (y.s.ch.dist ?? 0));
