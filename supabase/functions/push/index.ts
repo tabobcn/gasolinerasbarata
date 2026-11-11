@@ -8,7 +8,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { generateVapid, sendPush, type PushTarget, type Vapid } from "./webpush.ts";
 
-const SITE = (Deno.env.get("SITE_URL") ?? "https://repostaycarga.es").replace(/\/$/, "");
+const SITE = (Deno.env.get("SITE_URL") ?? "https://www.repostaycarga.es").replace(/\/$/, "");
 const MAX_SUBS = 5000;
 const TIME_BUDGET_MS = 110_000;
 const QUIET_FROM = 23; // de 23:00 a 7:00 (hora de Madrid) no se manda nada

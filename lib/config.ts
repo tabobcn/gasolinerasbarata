@@ -12,7 +12,7 @@ export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://qdu
 export const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_KEY || "sb_publishable_bcCfDMKBts9QeTLIPCnXjQ__q1GQ_wL";
 
 /** Dirección pública de la web (para Google: sitemap, enlaces canónicos). Cámbiala si pones dominio propio. */
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://repostaycarga.es").replace(/\/$/, "");
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.repostaycarga.es").replace(/\/$/, "");
 
 /** Correo de contacto que se enseña en la página "Fuentes y privacidad" */
 export const CONTACT_EMAIL = "tabobcn@gmail.com";
