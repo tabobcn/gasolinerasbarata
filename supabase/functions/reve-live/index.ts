@@ -2,10 +2,10 @@
 // REVE solo lo da EVSE a EVSE y permite 5 consultas por URL y hora, así que:
 //  - cada punto se pregunta como mucho una vez cada 15 minutos (reserva atómica en la base de datos),
 //  - hay un presupuesto propio de 300 peticiones/hora (ventana deslizante; la sincronización usa 650).
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 
 const BASE = "https://www.mapareve.es/api/external/v1";
-const MAX_PER_CALL = 16;
+const MAX_PER_CALL = 8; // puntos que una sola petición puede consultar (antes 16)
 const LIVE_BUDGET = 300;
 
 const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
@@ -44,9 +44,13 @@ Deno.serve(async (req) => {
   if (error) return json({ error: "Estado en directo no disponible" }, 503);
 
   let limited = false;
+  const unasked: string[] = []; // reservados pero no consultados por falta de presupuesto
   await Promise.all(
     ((claimed ?? []) as Claimed[]).map(async (e) => {
-      if (limited || !(await takeBudget())) return;
+      if (limited || !(await takeBudget())) {
+        unasked.push(e.id);
+        return;
+      }
       try {
         const r = await fetchStatus(e.evse_id ?? e.id);
         if (r.code === 429) {
@@ -65,6 +69,8 @@ Deno.serve(async (req) => {
       }
     }),
   );
+  // Sin presupuesto no se deja el punto reservado 15 minutos: la siguiente visita podrá consultarlo
+  if (unasked.length) await supa.from("ev_evses").update({ status_lock: null }).in("id", unasked);
 
   const { data: rows } = await supa.from("ev_evses").select("id, status, status_updated, status_checked").eq("location_id", loc).limit(60);
   return json({

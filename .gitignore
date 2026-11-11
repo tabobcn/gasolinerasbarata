@@ -8,3 +8,6 @@ public/maplibre
 # claves (no subir nunca a GitHub)
 .env*
 !.env.example
+
+# Capturas e informes generados por Claude
+Claude outputs/

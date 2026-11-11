@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { daysAgo, municipalityHistory, municipalityStations } from "@/lib/ministry";
+import { inBatches, daysAgo, municipalityHistory, municipalityStations } from "@/lib/ministry";
 import type { Prices, Station } from "@/lib/types";
 
 export const maxDuration = 30;
@@ -15,15 +15,13 @@ export async function GET(req: NextRequest) {
   // Como mucho 10 municipios por petición (cada uno son 2 consultas al Ministerio)
   const muns = [...new Set(items.map(([, m]) => m))].slice(0, 10);
   const yKey = daysAgo(1).key;
-  const data = await Promise.all(
-    muns.map(async (m) => {
+  const data = await inBatches(muns, 4, async (m) => {
       const [cur, yest] = await Promise.all([
         municipalityStations(m).catch(() => null),
         municipalityHistory(m, yKey).catch(() => null),
       ]);
       return { m, cur, yest };
-    }),
-  );
+  });
   const out: { station: Station; yesterday: Prices | null }[] = [];
   let updatedAt: string | null = null;
   for (const [id, m] of items) {

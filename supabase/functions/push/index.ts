@@ -5,7 +5,7 @@
 //  POST ?action=test    → manda un aviso de prueba
 //  POST ?action=check   → (solo pg_cron, con x-sync-token) comprueba precios y manda los avisos
 // No guarda datos personales: la dirección push que da el navegador, las alertas y los descuentos.
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 import { generateVapid, sendPush, type PushTarget, type Vapid } from "./webpush.ts";
 
 const SITE = (Deno.env.get("SITE_URL") ?? "https://www.repostaycarga.es").replace(/\/$/, "");
@@ -37,7 +37,9 @@ async function vapid(): Promise<Vapid> {
   if (!v) {
     const fresh = await generateVapid();
     await supa.from("ev_private").upsert({ k: "vapid", v: JSON.stringify(fresh) }, { onConflict: "k", ignoreDuplicates: true });
-    v = (await read()) ?? fresh;
+    v = await read();
+    // si no se ha podido guardar, no se usa una clave que ninguna otra instancia conocería
+    if (!v) throw new Error("No se han podido guardar las claves");
   }
   vapidCache = v;
   return v;
@@ -145,8 +147,15 @@ async function save(body: Record<string, unknown>) {
     updated_at: new Date().toISOString(),
     fails: 0,
   };
-  const { error } = await supa.from("push_subs").upsert(row, { onConflict: "endpoint" });
-  if (error) return json({ error: "No se ha podido guardar" }, 500);
+  if (prev) {
+    // Solo se actualiza la fila que ya existía. Si se ha borrado mientras tanto (el usuario desactivó los avisos), no se vuelve a crear.
+    const { data: upd, error } = await supa.from("push_subs").update(row).eq("id", prev.id).eq("auth", sub.auth).select("id");
+    if (error) return json({ error: "No se ha podido guardar" }, 500);
+    if (!upd?.length) return json({ error: "Suscripción no válida" }, 409);
+  } else {
+    const { error } = await supa.from("push_subs").upsert(row, { onConflict: "endpoint", ignoreDuplicates: true });
+    if (error) return json({ error: "No se ha podido guardar" }, 500);
+  }
   return json({ ok: true, alerts: alerts.length });
 }
 
@@ -159,8 +168,12 @@ async function findOwn(body: Record<string, unknown>) {
 }
 
 async function remove(body: Record<string, unknown>) {
-  const row = await findOwn(body);
-  if (row) await supa.from("push_subs").delete().eq("id", row.id);
+  const endpoint = str(body.endpoint, 2000);
+  const auth = str(body.auth, 40);
+  if (!endpoint || !auth) return json({ ok: true });
+  // Si la base de datos falla se dice, para que la app lo reintente en vez de dar la baja por hecha
+  const { error } = await supa.from("push_subs").delete().eq("endpoint", endpoint).eq("auth", auth);
+  if (error) return json({ error: "No se ha podido borrar ahora mismo" }, 503);
   return json({ ok: true });
 }
 
@@ -185,7 +198,14 @@ type CheckFav = { key: string; title: string; body: string; url: string };
 type CheckResponse = { day: string; alerts: CheckAlert[]; favs: CheckFav[] };
 
 /** Los avisos solo llevan a páginas de la propia web */
-const sitePath = (u: unknown) => (typeof u === "string" && /^\/(?!\/)/.test(u) ? u : "/alertas");
+const sitePath = (u: unknown) => (typeof u === "string" && u.length <= 200 && /^\/[A-Za-z0-9][A-Za-z0-9/?=&%._-]*$/.test(u) ? u : "/alertas");
+
+/** Comparación del token sin cortar en el primer carácter distinto */
+function sameToken(a: string, b: string): boolean {
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i % (b.length || 1));
+  return diff === 0;
+}
 
 const madridHour = () => Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Madrid", hour: "2-digit", hour12: false }).format(new Date())) % 24;
 
@@ -294,7 +314,7 @@ Deno.serve(async (req) => {
     if (action === "check") {
       const token = req.headers.get("x-sync-token") ?? "";
       const { data } = await supa.from("ev_private").select("v").eq("k", "sync_token").maybeSingle();
-      if (!data?.v || token !== data.v) return json({ error: "No autorizado" }, 401);
+      if (!data?.v || !sameToken(token, String(data.v))) return json({ error: "No autorizado" }, 401);
       return json(await check());
     }
     const text = await req.text();

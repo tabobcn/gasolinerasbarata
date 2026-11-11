@@ -22,6 +22,8 @@ const kwText = (n: number) => `${String(Math.round(n * 10) / 10).replace(".", ",
 
 async function load(params: Props["params"]) {
   const { provincia, municipio } = await params;
+  // un nombre que no puede ser de un municipio se descarta sin pedir datos
+  if (!/^[a-z0-9-]{1,80}$/.test(municipio)) return null;
   const p = provinceBySlug(provincia);
   if (!p) return null;
   const data = await provinceData(p.id).catch(() => null);

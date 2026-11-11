@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
     const body: ChargersResponse = { ...data, items: groupSites(data.items) };
     return NextResponse.json(body, { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=900" } });
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 502 });
+    console.error("[api]", (e as Error).message); // el detalle se queda en el registro del servidor
+    return NextResponse.json({ error: "No hemos podido consultar los datos ahora mismo. Inténtalo de nuevo en un momento." }, { status: 502 });
   }
 }

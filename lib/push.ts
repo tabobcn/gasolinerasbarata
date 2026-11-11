@@ -9,7 +9,11 @@ import { encodeDiscounts } from "./discounts";
  * El navegador se suscribe y mandamos al servidor esa suscripción con las alertas; el servidor comprueba
  * los precios cada media hora. No se manda ningún dato personal: solo la dirección push que da el navegador.
  */
-export type PushPrefs = { on: boolean; hash: string; syncedAt: number };
+/** rm: baja que no se pudo enviar al servidor (se reintenta al abrir la app) */
+export type PushPrefs = { on: boolean; hash: string; syncedAt: number; rm?: { endpoint: string; auth: string } };
+
+/** Sube cada vez que se desactivan los avisos: una sincronización que estaba a medias no puede volver a activarlos */
+let gen = 0;
 export const pushStore = createPersisted<PushPrefs>("gc.push", { on: false, hash: "", syncedAt: 0 }, true);
 export const usePush = () => usePersisted(pushStore);
 
@@ -89,6 +93,9 @@ async function subscribe(reg: ServiceWorkerRegistration): Promise<PushSubscripti
     // Si la suscripción es de otra clave de servidor (antigua), se rehace
     const curKey = cur.options?.applicationServerKey ? b64u(cur.options.applicationServerKey) : null;
     if (!curKey || curKey === key) return cur;
+    // se borra en el servidor la dirección antigua para que no quede una fila huérfana
+    const old = keysOf(cur);
+    await api({ action: "remove", endpoint: old.endpoint, auth: old.auth }).catch(() => {});
     await cur.unsubscribe().catch(() => {});
   }
   return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: appKey });
@@ -119,7 +126,10 @@ export async function enablePush(): Promise<PushResult> {
   }
 }
 
+const removeOnServer = (k: { endpoint: string; auth: string }) => api({ action: "remove", endpoint: k.endpoint, auth: k.auth });
+
 export async function disablePush(): Promise<void> {
+  gen++;
   pushStore.set({ on: false, hash: "", syncedAt: 0 });
   try {
     const reg = await navigator.serviceWorker.getRegistration();
@@ -127,7 +137,12 @@ export async function disablePush(): Promise<void> {
     if (!sub) return;
     const k = keysOf(sub);
     // Primero se borra en el servidor (con un reintento); después se da de baja el navegador
-    await api({ action: "remove", endpoint: k.endpoint, auth: k.auth }).catch(() => api({ action: "remove", endpoint: k.endpoint, auth: k.auth }).catch(() => {}));
+    const done = await removeOnServer(k)
+      .catch(() => removeOnServer(k))
+      .then(() => true)
+      .catch(() => false);
+    // Si el servidor no ha contestado, la baja queda apuntada y se reintenta al abrir la app
+    if (!done && !pushStore.get().on) pushStore.set({ on: false, hash: "", syncedAt: 0, rm: { endpoint: k.endpoint, auth: k.auth } });
     await sub.unsubscribe().catch(() => {});
   } catch {
     /* ya no había suscripción */
@@ -150,17 +165,52 @@ export async function testPush(): Promise<PushResult> {
 /** Manda al servidor las alertas actuales si han cambiado (o una vez por semana, para mantener viva la suscripción) */
 export async function syncPush(): Promise<void> {
   const p = pushStore.get();
-  if (!p.on || pushSupport() !== "ok") return;
+  if (!p.on) {
+    // baja pendiente de un intento anterior sin conexión
+    if (p.rm) {
+      const rm = p.rm;
+      await removeOnServer(rm)
+        .then(() => {
+          const now = pushStore.get();
+          if (!now.on && now.rm?.endpoint === rm.endpoint) pushStore.set({ on: false, hash: "", syncedAt: 0 });
+        })
+        .catch(() => {});
+    }
+    return;
+  }
+  if (pushSupport() !== "ok") return;
+  const mine = gen;
   try {
     if (Notification.permission !== "granted") {
-      pushStore.set({ on: false, hash: "", syncedAt: 0 }); // el usuario ha quitado el permiso
+      // el usuario ha quitado el permiso: se apaga y, si aún se conoce la dirección, se borra en el servidor
+      pushStore.set({ on: false, hash: "", syncedAt: 0 });
+      const reg = await navigator.serviceWorker.getRegistration();
+      const old = await reg?.pushManager.getSubscription().catch(() => null);
+      if (old) {
+        await removeOnServer(keysOf(old)).catch(() => {});
+        await old.unsubscribe().catch(() => {});
+      }
       return;
     }
     const sub = await subscribe(await registration());
+    // ¿se han desactivado los avisos mientras se esperaba? (en esta pestaña o en otra)
+    const off = () => mine !== gen || !pushStore.get().on;
+    if (off()) {
+      if (!pushStore.get().on) await sub.unsubscribe().catch(() => {});
+      return;
+    }
     const body = payload(sub);
     const hash = hashOf(JSON.stringify(body));
     if (hash === p.hash && Date.now() - p.syncedAt < 7 * 86_400_000) return;
     await api({ action: "save", ...body });
+    if (off()) {
+      // se desactivaron mientras el servidor contestaba: se deshace lo guardado y no se vuelve a activar
+      if (!pushStore.get().on) {
+        await removeOnServer(body.sub).catch(() => {});
+        await sub.unsubscribe().catch(() => {});
+      }
+      return;
+    }
     pushStore.set({ on: true, hash, syncedAt: Date.now() });
   } catch {
     /* sin conexión: se reintenta la próxima vez que se abra la app */

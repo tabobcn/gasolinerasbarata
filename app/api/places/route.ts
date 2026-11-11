@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
     }
     return NextResponse.json({ places }, { headers: { "Cache-Control": "public, s-maxage=86400" } });
   } catch (e) {
-    return NextResponse.json({ places: [], error: (e as Error).message }, { status: 502 });
+    console.error("[api]", (e as Error).message); // el detalle se queda en el registro del servidor
+    return NextResponse.json({ places: [], error: "No hemos podido consultar los datos ahora mismo. Inténtalo de nuevo en un momento." }, { status: 502 });
   }
 }

@@ -26,7 +26,8 @@ self.addEventListener("notificationclick", (event) => {
   let url = "/";
   try {
     const u = new URL((event.notification.data && event.notification.data.url) || "/", self.location.origin);
-    if (u.origin === self.location.origin) url = u.pathname + u.search;
+    // dirección completa ya resuelta: una ruta que empiece por dos barras no puede sacar al usuario de la web
+    if (u.origin === self.location.origin && !u.pathname.startsWith("//")) url = u.href;
   } catch (e) {
     url = "/";
   }

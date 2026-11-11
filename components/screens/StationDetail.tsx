@@ -29,14 +29,14 @@ export function StationDetail({ id, m }: { id: string; m: string | null }) {
   const [favs] = useFavorites();
   const goTo = useNavigate();
   const fuel = settings.fuel;
-  const { data, error, loading, reload } = useJSON<StationDetailResponse>(m ? `/api/stations/${id}?m=${m}` : null);
+  const { data, error, loading, reload } = useJSON<StationDetailResponse>(m ? `/api/stations/${encodeURIComponent(id)}?m=${encodeURIComponent(m)}` : null);
   const st = data?.station;
   const [discState] = useDiscounts();
   const myDisc = st ? discountFor(st.brand, discState) : null;
   const brandK = st ? knownBrand(st.brand) : null;
   const offers = brandK ? activeOffers().filter((o) => PROGRAMS.find((p) => p.id === o.program)?.brands.includes(brandK)) : [];
   const histFuel = st && st.prices[fuel] == null ? (FUELS.find((f) => st.prices[f.key] != null)?.key ?? fuel) : fuel;
-  const hist = useJSON<HistoryResponse>(st ? `/api/stations/${id}/history?m=${st.munId}&fuel=${histFuel}&days=14` : null);
+  const hist = useJSON<HistoryResponse>(st ? `/api/stations/${encodeURIComponent(id)}/history?m=${encodeURIComponent(st.munId)}&fuel=${histFuel}&days=14` : null);
 
   const dist = st && loc ? haversineKm(loc.lat, loc.lon, st.lat, st.lon) : undefined;
   const isFav = favs.some((f) => f.id === id);

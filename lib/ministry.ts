@@ -66,6 +66,8 @@ export function normalize(r: RawStation): Station | null {
   }
   const brand = brandKey(r["Rótulo"] || "");
   const mun = fixMunicipality(r["Municipio"] || "");
+  // Los identificadores acaban en enlaces y direcciones: solo se aceptan si son números
+  if (!/^\d{1,6}$/.test(r["IDEESS"] ?? "") || !/^\d{1,5}$/.test(r["IDMunicipio"] ?? "")) return null;
   return {
     id: r["IDEESS"],
     brand,
@@ -134,14 +136,26 @@ export function provinceStations(provId: string): Promise<Dataset> {
   );
 }
 
-export function municipalityStations(munId: string): Promise<Dataset> {
+/** "0861" y "861" son el mismo municipio: una sola entrada de caché y una sola dirección del Ministerio */
+const canonMun = (munId: string) => String(Number(munId) || 0);
+
+/** Ejecuta las tareas en tandas pequeñas para no lanzar decenas de consultas a la vez al Ministerio */
+export async function inBatches<T, R>(items: T[], size: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = [];
+  for (let i = 0; i < items.length; i += size) out.push(...(await Promise.all(items.slice(i, i + size).map(fn))));
+  return out;
+}
+
+export function municipalityStations(munIdRaw: string): Promise<Dataset> {
+  const munId = canonMun(munIdRaw);
   return cached(`m:${munId}`, async () =>
     toDataset(await getJSON(`${BASE}/EstacionesTerrestres/FiltroMunicipio/${munId}`, 0)),
   );
 }
 
 /** Precios de un municipio en un día pasado (dd-mm-aaaa). Los días pasados no cambian: caché larga. */
-export async function municipalityHistory(munId: string, ddmmyyyy: string): Promise<Station[]> {
+export async function municipalityHistory(munIdRaw: string, ddmmyyyy: string): Promise<Station[]> {
+  const munId = canonMun(munIdRaw);
   const raw = await getJSON(`${BASE}/EstacionesTerrestresHist/FiltroMunicipio/${ddmmyyyy}/${munId}`, 60 * 60 * 24 * 30);
   return raw.ListaEESSPrecio.map(normalize).filter((s): s is Station => s !== null);
 }

@@ -10,7 +10,8 @@ export function PushSync() {
   useEffect(() => {
     let t: ReturnType<typeof setTimeout> | null = null;
     const later = (ms: number) => {
-      if (!pushStore.get().on) return;
+      const st = pushStore.get();
+      if (!st.on && !st.rm) return; // nada que sincronizar ni baja pendiente
       if (t) clearTimeout(t);
       t = setTimeout(() => void syncPush(), ms);
     };

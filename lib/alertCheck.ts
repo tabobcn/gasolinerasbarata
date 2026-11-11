@@ -1,5 +1,5 @@
 import "server-only";
-import { daysAgo, municipalityHistory, municipalityStations, stationsInArea } from "./ministry";
+import { inBatches, daysAgo, municipalityHistory, municipalityStations, stationsInArea } from "./ministry";
 import { bboxAround, haversineKm } from "./geo";
 import { applyDiscounts, decodeDiscounts } from "./discounts";
 import { fuelByKey, isFuelKey, type FuelKey } from "./fuels";
@@ -79,12 +79,10 @@ export async function checkFavDrops(favs: { id: string; m: string }[], fuels: Fu
   const today = madridDate();
   const yKey = daysAgo(1).key;
   const muns = [...new Set(favs.map((f) => f.m))].slice(0, 10);
-  const data = await Promise.all(
-    muns.map(async (m) => {
+  const data = await inBatches(muns, 4, async (m) => {
       const [cur, yest] = await Promise.all([municipalityStations(m).catch(() => null), municipalityHistory(m, yKey).catch(() => null)]);
       return { m, cur, yest };
-    }),
-  );
+  });
   const out: FavResult[] = [];
   for (const f of favs) {
     const d = data.find((x) => x.m === f.m);

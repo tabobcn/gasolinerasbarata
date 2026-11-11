@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { daysAgo, municipalityHistory, municipalityStations } from "@/lib/ministry";
+import { daysAgo, inBatches, municipalityHistory, municipalityStations } from "@/lib/ministry";
 import { isFuelKey } from "@/lib/fuels";
 import type { HistoryResponse } from "@/lib/types";
 
@@ -16,12 +16,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   }
   const past = Array.from({ length: days - 1 }, (_, i) => daysAgo(days - 1 - i)); // del más antiguo a ayer
   const [hist, today] = await Promise.all([
-    Promise.all(
-      past.map((d) =>
-        municipalityHistory(m, d.key)
-          .then((list) => ({ date: d.iso, price: list.find((s) => s.id === id)?.prices[fuel] ?? null, ok: true }))
-          .catch(() => ({ date: d.iso, price: null, ok: false })),
-      ),
+    // de 8 en 8, como el sitemap, para no saturar al Ministerio
+    inBatches(past, 8, (d) =>
+      municipalityHistory(m, d.key)
+        .then((list) => ({ date: d.iso, price: list.find((s) => s.id === id)?.prices[fuel] ?? null, ok: true }))
+        .catch(() => ({ date: d.iso, price: null, ok: false })),
     ),
     municipalityStations(m).catch(() => null),
   ]);
