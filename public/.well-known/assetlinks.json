@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "es.repostaycarga.app",
+      "sha256_cert_fingerprints": [
+        "C3:33:09:D8:4E:1A:27:BA:80:BA:DA:0F:CF:A5:52:25:FA:85:2F:2A:8A:9B:6A:4D:31:03:00:8C:46:A3:11:5B"
+      ]
+    }
+  }
+]
