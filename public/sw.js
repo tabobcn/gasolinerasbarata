@@ -11,7 +11,7 @@ self.addEventListener("push", (event) => {
     d = { body: event.data ? event.data.text() : "" };
   }
   event.waitUntil(
-    self.registration.showNotification(d.title || "Gasolineras Cerca", {
+    self.registration.showNotification(d.title || "Reposta y Carga", {
       body: d.body || "",
       tag: d.tag || undefined,
       data: { url: d.url || "/" },

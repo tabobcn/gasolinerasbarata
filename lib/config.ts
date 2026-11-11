@@ -1,6 +1,6 @@
 /** Cambia aquí el nombre de la app */
-export const APP_NAME = "Gasolineras Cerca";
-export const APP_SHORT = "Gasolineras";
+export const APP_NAME = "Reposta y Carga";
+export const APP_SHORT = "Reposta y Carga";
 export const APP_DESCRIPTION =
   "Encuentra la gasolinera más barata y los cargadores para coche eléctrico cerca de ti: precios oficiales del Ministerio, puntos de recarga con precio y estado, cuánto ahorras de verdad y cómo llegar con Google Maps o Waze.";
 
@@ -12,7 +12,7 @@ export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://qdu
 export const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_KEY || "sb_publishable_bcCfDMKBts9QeTLIPCnXjQ__q1GQ_wL";
 
 /** Dirección pública de la web (para Google: sitemap, enlaces canónicos). Cámbiala si pones dominio propio. */
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://gasolinerasbarata.vercel.app").replace(/\/$/, "");
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://repostaycarga.es").replace(/\/$/, "");
 
 /** Correo de contacto que se enseña en la página "Fuentes y privacidad" */
 export const CONTACT_EMAIL = "tabobcn@gmail.com";
