@@ -126,6 +126,11 @@ function PushCard() {
           Qué guardamos para poder avisarte
         </Link>
       )}
+      {!push.on && (
+        <Link href="/instalar" className="b12 green">
+          Cómo instalar la app y activar los avisos
+        </Link>
+      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { MapScreen } from "./MapScreen";
 import { useDesktop } from "@/lib/useDesktop";
 import { StationRow, stationHref } from "../StationRow";
 import { AlertsBanner } from "../AlertsBanner";
+import { InstallHint } from "../InstallHint";
 import { BottomNav, BrandTile, EmptyState, FuelChips, ModeTabs, Sheet, Skeleton } from "../ui";
 import { Icon } from "../Icon";
 import { favoritesStore, modeStore, settingsStore, useFavorites, useSettings } from "@/lib/store";
@@ -215,6 +216,8 @@ export function Home() {
           </section>
         )}
 
+        {best && <InstallHint />}
+
         {view && view.others.length > 0 && (
           <>
             <div className="row-between baseline">
@@ -240,6 +243,8 @@ export function Home() {
             </Link>
             {" · "}
             <Link href="/privacidad">Fuentes y privacidad</Link>
+            {" · "}
+            <Link href="/instalar">Instalar la app y avisos</Link>
           </p>
         )}
       </div>

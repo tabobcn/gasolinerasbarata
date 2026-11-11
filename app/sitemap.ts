@@ -14,6 +14,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/gasolineras`, changeFrequency: "daily", priority: 0.8, lastModified: now },
     { url: `${SITE_URL}/cargadores`, changeFrequency: "weekly", priority: 0.6, lastModified: now },
     { url: `${SITE_URL}/privacidad`, changeFrequency: "yearly", priority: 0.2 },
+    { url: `${SITE_URL}/instalar`, changeFrequency: "yearly", priority: 0.3 },
   ];
   for (const p of PROVINCES) {
     out.push({ url: `${SITE_URL}/gasolineras/${provinceSlug(p)}`, changeFrequency: "hourly", priority: 0.7, lastModified: now });
