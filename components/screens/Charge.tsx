@@ -5,6 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "../LocationProvider";
 import { useNavigate } from "../NavigateProvider";
 import { PlaceSearch } from "../PlaceSearch";
+import { DeskSearch } from "../DeskSearch";
+import { MapScreen } from "./MapScreen";
+import { useDesktop } from "@/lib/useDesktop";
 import { BottomNav, EmptyState, ModeTabs, Sheet, Skeleton } from "../ui";
 import { Icon } from "../Icon";
 import { AvailBadge, ChargerRow, ChargerTile } from "../ChargerBits";
@@ -34,6 +37,7 @@ const kw = (n: number) => `${String(Math.round(n * 10) / 10).replace(".", ",")} 
 
 export function Charge() {
   const { loc, status, ready, locate, setPlace } = useLocation();
+  const desktop = useDesktop();
   const [settings] = useSettings();
   useEffect(() => modeStore.set("charge"), []);
   const car = carFrom(settings);
@@ -83,8 +87,9 @@ export function Charge() {
   const hg = hero?.best;
 
   return (
-    <div className="screen with-nav">
+    <div className="screen with-nav split">
       <div className="stack-14 pad-x top">
+        <DeskSearch title="¿Dónde quieres cargar?" />
         <h1 className="sr-only">Puntos de recarga cerca de ti</h1>
         <div className="row-between">
           <button type="button" className="place-btn" onClick={() => setSheet(true)}>
@@ -324,6 +329,12 @@ export function Charge() {
           </p>
         )}
       </div>
+
+      {desktop && (
+        <div className="split-map">
+          <MapScreen embedded="charge" />
+        </div>
+      )}
 
       <Sheet open={sheet} onClose={() => setSheet(false)} label="Cambiar zona">
         <div className="stack-16">

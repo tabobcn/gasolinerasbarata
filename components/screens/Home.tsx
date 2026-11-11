@@ -5,6 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "../LocationProvider";
 import { useNavigate } from "../NavigateProvider";
 import { PlaceSearch } from "../PlaceSearch";
+import { DeskSearch } from "../DeskSearch";
+import { MapScreen } from "./MapScreen";
+import { useDesktop } from "@/lib/useDesktop";
 import { StationRow, stationHref } from "../StationRow";
 import { AlertsBanner } from "../AlertsBanner";
 import { BottomNav, BrandTile, EmptyState, FuelChips, ModeTabs, Sheet, Skeleton } from "../ui";
@@ -24,6 +27,7 @@ const RADII = [2, 5, 10, 20];
 
 export function Home() {
   const { loc, status, ready, locate, setPlace } = useLocation();
+  const desktop = useDesktop();
   const [settings, setSettings] = useSettings();
   useEffect(() => modeStore.set("fuel"), []);
   const [favs] = useFavorites();
@@ -58,8 +62,9 @@ export function Home() {
   };
 
   return (
-    <div className="screen with-nav">
+    <div className="screen with-nav split">
       <div className="stack-16 pad-x top">
+        <DeskSearch title="¿Dónde quieres repostar?" />
         <h1 className="sr-only">Gasolineras baratas cerca de ti</h1>
         <div className="row-between">
           <button type="button" className="place-btn" onClick={() => setSheet(true)}>
@@ -238,6 +243,12 @@ export function Home() {
           </p>
         )}
       </div>
+
+      {desktop && (
+        <div className="split-map">
+          <MapScreen embedded="fuel" />
+        </div>
+      )}
 
       <Sheet open={sheet} onClose={() => setSheet(false)} label="Cambiar zona">
         <div className="stack-16">

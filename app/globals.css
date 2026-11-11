@@ -1706,3 +1706,211 @@ button {
 .legal p { margin: 0; line-height: 1.5; }
 .legal a { color: var(--green); font-weight: 700; }
 .source a { color: var(--green); font-weight: 700; }
+
+/* ===== Versión de ordenador (a partir de 1024 px): menú lateral, lista y mapa a la vez ===== */
+.side-nav,
+.desk-search,
+.split-map {
+  display: none;
+}
+@media (min-width: 1024px) {
+  :root {
+    --side: 232px;
+    --col: 520px;
+    --page: 760px;
+  }
+  body {
+    background: var(--bg);
+  }
+  .side-nav {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--side);
+    z-index: 1600;
+    background: var(--surface);
+    border-right: 1px solid var(--line);
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    overflow-y: auto;
+  }
+  .side-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 8px;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .side-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    background: var(--green);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .side-links {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .side-links a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 12px;
+    color: var(--ink-2);
+    font-size: 15px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .side-links a:hover {
+    background: var(--bg);
+  }
+  .side-links a.on {
+    background: var(--green-bg);
+    color: var(--green-dark);
+    font-weight: 800;
+  }
+  .side-foot {
+    margin: auto 0 0;
+    padding: 0 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  .side-foot a {
+    color: var(--green);
+  }
+
+  .app {
+    max-width: none;
+    margin: 0 0 0 var(--side);
+    box-shadow: none;
+  }
+  .bottom-nav {
+    display: none;
+  }
+  .screen {
+    max-width: var(--page);
+    margin: 0 auto;
+  }
+  .screen.with-nav {
+    padding-bottom: 48px;
+  }
+  .action-bar {
+    left: calc(var(--side) + (100% - var(--side)) / 2);
+    max-width: var(--page);
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: 20px 20px 0 0;
+    padding-bottom: 16px;
+  }
+  .action-bar.plain {
+    border: 0;
+  }
+
+  /* Hojas: ventana centrada en vez de subir desde abajo */
+  .sheet-layer {
+    align-items: center;
+    padding: 24px;
+  }
+  .sheet {
+    border-radius: 28px;
+    max-height: 84dvh;
+    padding-bottom: 24px;
+  }
+  .sheet > .sheet-grip {
+    display: none;
+  }
+
+  /* Lista a la izquierda y mapa a la derecha */
+  .screen.split {
+    max-width: none;
+    margin: 0;
+    display: grid;
+    grid-template-columns: minmax(400px, 480px) minmax(0, 1fr);
+    align-items: start;
+  }
+  .split-map {
+    display: block;
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    border-left: 1px solid var(--line);
+  }
+  .desk-search {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .desk-title {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.4px;
+  }
+  .desk-search .search-box {
+    height: 56px;
+    box-shadow: inset 0 0 0 2px var(--green), var(--shadow-card);
+  }
+  .desk-search .search-box input {
+    font-size: 17px;
+    font-weight: 700;
+  }
+  .desk-search .suggestions {
+    background: var(--surface);
+    border-radius: 16px;
+    padding: 0 12px;
+    box-shadow: var(--shadow-1);
+  }
+  .desk-search .suggestions li:last-child button {
+    border-bottom: 0;
+  }
+  /* con el buscador grande arriba sobra la lupa de la cabecera */
+  .screen.split .place-btn + .icon-btn {
+    display: none;
+  }
+
+  /* Mapa */
+  .map-screen.embedded {
+    height: 100%;
+  }
+  .map {
+    inset: 0;
+  }
+  .map-top {
+    max-width: 480px;
+  }
+  .map-screen.embedded .map-top > .mode-tabs,
+  .map-screen.embedded .map-top > .search-box {
+    display: none;
+  }
+  .map-card {
+    left: 16px;
+    right: auto;
+    bottom: 24px;
+    width: min(420px, calc(100% - 100px));
+    box-shadow: 0 4px 24px rgba(14, 23, 38, 0.18);
+  }
+  .map-card > .sheet-grip {
+    display: none;
+  }
+  .map-screen:not(.embedded) .map-side {
+    bottom: 24px !important;
+  }
+  .maplibregl-ctrl-top-right {
+    top: 12px;
+  }
+}

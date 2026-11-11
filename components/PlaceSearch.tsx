@@ -73,7 +73,7 @@ export function PlaceSearch({
               <LocateIcon size={20} />
               <span className="col-2">
                 <span className="b15">Usar mi ubicación</span>
-                <span className="muted xs">GPS del móvil</span>
+                <span className="muted xs">Tu posición actual</span>
               </span>
             </button>
           </li>

@@ -5,6 +5,7 @@ import "./globals.css";
 import { LocationProvider } from "@/components/LocationProvider";
 import { NavigateProvider } from "@/components/NavigateProvider";
 import { SwRegister } from "@/components/SwRegister";
+import { SideNav } from "@/components/SideNav";
 import { PushSync } from "@/components/PushSync";
 import { Analytics } from "@vercel/analytics/next";
 import { APP_NAME, APP_DESCRIPTION, SITE_URL } from "@/lib/config";
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a href="#main" className="skip">Saltar al contenido</a>
         <LocationProvider>
           <NavigateProvider>
+            <SideNav />
             <main id="main" className="app">{children}</main>
           </NavigateProvider>
         </LocationProvider>

@@ -41,7 +41,8 @@ function esc(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
 
-export function MapScreen() {
+/** embedded: mapa metido al lado de la lista (ordenador). Sigue la zona de la lista y no lleva barra ni buscador propios. */
+export function MapScreen({ embedded }: { embedded?: "fuel" | "charge" } = {}) {
   const { loc, gps, locate, setPlace } = useLocation();
   const [settings, setSettings] = useSettings();
   const fuel = settings.fuel;
@@ -59,7 +60,8 @@ export function MapScreen() {
   const [sheet, setSheet] = useState<null | "search" | "fuel">(null);
   const [ready, setReady] = useState(false);
   // Gasolineras o cargadores (nunca mezclados). Recuerda el último modo usado.
-  const [mode, setMode] = useMode();
+  const [storeMode, setMode] = useMode();
+  const mode = embedded ?? storeMode;
   const car = carFrom(settings);
   const [onlyCompat, setOnlyCompat] = useState(true);
   const [onlyWorking, setOnlyWorking] = useState(false);
@@ -84,6 +86,16 @@ export function MapScreen() {
       setSel(sp.get("sel"));
     } else if (loc) setCenter({ lat: loc.lat, lon: loc.lon });
   }, [loc, center]);
+
+  // Al lado de la lista, el mapa se mueve cuando cambia la zona buscada
+  const locLat = loc?.lat;
+  const locLon = loc?.lon;
+  useEffect(() => {
+    if (!embedded || locLat == null || locLon == null) return;
+    setCenter((c) => (c && c.lat === locLat && c.lon === locLon ? c : { lat: locLat, lon: locLon }));
+    setSel(null);
+    mapRef.current?.jumpTo({ center: [locLon, locLat] });
+  }, [embedded, locLat, locLon]);
 
   const { data, loading } = useJSON<StationsResponse>(center && mode === "fuel" ? stationsUrl(center.lat, center.lon, settings.radius) : null);
   const chRes = useJSON<ChargersResponse>(center && mode === "charge" ? `/api/chargers?lat=${r3(center.lat)}&lon=${r3(center.lon)}&radius=${settings.radius}` : null);
@@ -267,6 +279,7 @@ export function MapScreen() {
     setCenter({ lat: c.lat, lon: c.lng });
     setSel(null);
     setFarAway(false);
+    if (embedded) setPlace({ lat: c.lat, lon: c.lng, label: "Zona del mapa" }); // la lista de al lado busca en el mismo sitio
   };
 
   const recenter = useCallback(() => {
@@ -296,7 +309,7 @@ export function MapScreen() {
   const showCard = mode === "fuel" ? !!(selected && selPrice != null && selLv) : !!selCh;
 
   return (
-    <div className="map-screen">
+    <div className={`map-screen${embedded ? " embedded" : ""}`}>
       <div ref={el} className="map" aria-label={mode === "fuel" ? "Mapa de gasolineras" : "Mapa de puntos de recarga"} />
       {!center && (
         <div className="map-empty">
@@ -382,7 +395,7 @@ export function MapScreen() {
         {(loading || chRes.loading) && <span className="loading-pill">{mode === "fuel" ? "Cargando precios…" : "Cargando cargadores…"}</span>}
       </div>
 
-      <div className="map-side" style={{ bottom: showCard ? 300 : 104 }}>
+      <div className="map-side" style={embedded ? { bottom: 24 } : { bottom: showCard ? 300 : 104 }}>
         {gps && (
           <span className="gps-chip">
             <span className="dot" aria-hidden="true" />
@@ -504,7 +517,7 @@ export function MapScreen() {
         </div>
       </Sheet>
 
-      <BottomNav />
+      {!embedded && <BottomNav />}
     </div>
   );
 }
