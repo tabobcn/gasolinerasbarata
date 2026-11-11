@@ -12,6 +12,7 @@ const ITEMS: { href: string; label: string; icon: IconName; match: (p: string) =
   { href: "/ruta", label: "Ruta", icon: "route", match: (p) => p.startsWith("/ruta") },
   { href: "/favoritas", label: "Favoritas", icon: "star", match: (p) => p.startsWith("/favoritas") },
   { href: "/alertas", label: "Alertas", icon: "bell", match: (p) => p.startsWith("/alertas") },
+  { href: "/repostajes", label: "Mis repostajes", icon: "trendDown", match: (p) => p.startsWith("/repostajes") },
   { href: "/descuentos", label: "Descuentos", icon: "card", match: (p) => p.startsWith("/descuentos") },
   { href: "/mi-coche", label: "Mi coche", icon: "car", match: (p) => p.startsWith("/mi-coche") },
 ];

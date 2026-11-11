@@ -199,6 +199,15 @@ export function StationDetail({ id, m }: { id: string; m: string | null }) {
               </p>
             )}
 
+            {st.prices[histFuel] != null && (
+              <Link
+                href={`/repostajes?nuevo=1&id=${st.id}&m=${st.munId}&nombre=${encodeURIComponent(st.name)}&marca=${encodeURIComponent(st.brand)}&fuel=${histFuel}&precio=${(st.prices[histFuel]! - (myDisc ? myDisc.cts / 100 : 0)).toFixed(3)}`}
+                className="btn soft"
+              >
+                <Icon name="plus" size={18} /> Apuntar un repostaje aquí
+              </Link>
+            )}
+
             {myDisc && (
               <Link href="/descuentos" className="note amber link">
                 <Icon name="card" size={18} />

@@ -121,12 +121,29 @@ export type PriceAlert = {
 
 export type LastLocation = { lat: number; lon: number; label: string | null; at: number };
 
+/** Repostaje apuntado por el usuario (se guarda solo en su navegador) */
+export type Refuel = {
+  id: string;
+  date: string; // AAAA-MM-DD
+  name: string; // gasolinera
+  brand: string;
+  stationId?: string;
+  munId?: string;
+  fuel: FuelKey;
+  liters: number;
+  price: number; // €/l
+  total: number; // €
+  km?: number; // cuentakilómetros (opcional, para el consumo)
+};
+
 export const settingsStore = createPersisted<Settings>("gc.settings", DEFAULT_SETTINGS, true);
 export const favoritesStore = createPersisted<Favorite[]>("gc.favorites", []);
 export const placesStore = createPersisted<SavedPlace[]>("gc.places", []);
 export const alertsStore = createPersisted<PriceAlert[]>("gc.alerts", []);
 export const lastLocationStore = createPersisted<LastLocation | null>("gc.lastLocation", null);
 
+export const refuelsStore = createPersisted<Refuel[]>("gc.refuels", []);
+export const useRefuels = () => usePersisted(refuelsStore);
 export const useSettings = () => usePersisted(settingsStore);
 export const useFavorites = () => usePersisted(favoritesStore);
 export const usePlaces = () => usePersisted(placesStore);

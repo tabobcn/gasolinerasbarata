@@ -246,6 +246,19 @@ export function Home() {
         )}
 
         {data && (
+          <Link href="/repostajes" className="card row-12 tight-y plain">
+            <span className="soft-icon green" aria-hidden="true">
+              <Icon name="trendDown" size={20} />
+            </span>
+            <span className="col-2 grow min0">
+              <span className="b14">Mis repostajes</span>
+              <span className="muted b12">Apunta lo que echas y mira cuánto gastas al mes</span>
+            </span>
+            <span className="link-btn">Abrir</span>
+          </Link>
+        )}
+
+        {data && (
           <p className="source">
             Precios oficiales del Ministerio (Geoportal de Gasolineras), se actualizan cada media hora. Distancias en línea recta.{" "}
             <Link href="/gasolineras" className="green">
