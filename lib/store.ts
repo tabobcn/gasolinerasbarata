@@ -106,6 +106,7 @@ export type SavedPlace = {
   detail: string; // "Cornellà de Llobregat"
   lat: number;
   lon: number;
+  radius?: number; // km alrededor del sitio (5 si no se indica)
 };
 
 export type PriceAlert = {

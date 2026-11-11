@@ -6,7 +6,12 @@ import { BottomNav, BrandTile, Sheet } from "../ui";
 import { Icon } from "../Icon";
 import { refuelsStore, useRefuels, useSettings, type Refuel } from "@/lib/store";
 import { FUELS, fuelByKey, isFuelKey, type FuelKey } from "@/lib/fuels";
-import { fmtEuros, fmtPrice, madridDate } from "@/lib/format";
+import { fmtEuros, fmtKm, fmtPrice, madridDate } from "@/lib/format";
+import { useLocation } from "../LocationProvider";
+import { stationsUrl, useJSON } from "@/lib/useJSON";
+import type { Station, StationsResponse } from "@/lib/types";
+import { useDiscounts } from "@/lib/discountStore";
+import { applyDiscounts } from "@/lib/discounts";
 
 const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const MONTHS_LONG = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -21,7 +26,7 @@ const dayText = (iso: string) => {
   return `${d} ${MONTHS[m - 1]}${y !== new Date().getFullYear() ? ` ${y}` : ""}`;
 };
 
-type Form = { date: string; name: string; brand: string; stationId?: string; munId?: string; fuel: FuelKey; liters: string; price: string; total: string; km: string };
+type Form = { id?: string; date: string; name: string; brand: string; stationId?: string; munId?: string; fuel: FuelKey; liters: string; price: string; total: string; km: string };
 
 export function Refuels() {
   const [list] = useRefuels();
@@ -29,6 +34,32 @@ export function Refuels() {
   const today = madridDate(new Date());
   const [form, setForm] = useState<Form | null>(null);
   const [last, setLast] = useState<"liters" | "total">("total"); // qué se calcula solo
+
+  const { loc, locate, status } = useLocation();
+  const [disc] = useDiscounts();
+  const [more, setMore] = useState(false);
+  // Gasolineras cercanas para elegir sin escribir (solo se piden con el formulario abierto)
+  const near = useJSON<StationsResponse>(form && !form.id && loc ? stationsUrl(loc.lat, loc.lon, 5) : null);
+  const nearList = useMemo(() => {
+    if (!near.data || !form) return [];
+    const q = form.stationId ? "" : form.name.trim().toLowerCase();
+    return applyDiscounts(near.data.stations, disc)
+      .filter((st) => !q || st.name.toLowerCase().includes(q) || st.brand.toLowerCase().includes(q))
+      .sort((a, b) => (a.dist ?? 0) - (b.dist ?? 0));
+  }, [near.data, disc, form?.name, form?.stationId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const picked: Station | undefined = form?.stationId && near.data ? applyDiscounts(near.data.stations, disc).find((st) => st.id === form.stationId) : undefined;
+
+  const pick = (st: Station) => {
+    const p = st.prices[form!.fuel];
+    set({ name: st.name, brand: st.brand, stationId: st.id, munId: st.munId, ...(p != null ? { price: dec(p, 3) } : {}) }, p != null ? "price" : undefined);
+  };
+  const pickFuel = (f: FuelKey) => {
+    const p = picked?.prices[f];
+    set({ fuel: f, ...(p != null ? { price: dec(p, 3) } : {}) }, p != null ? "price" : undefined);
+  };
+  const edit = (r: Refuel) =>
+    setForm({ id: r.id, date: r.date, name: r.name, brand: r.brand, stationId: r.stationId, munId: r.munId, fuel: r.fuel, liters: dec(r.liters), price: dec(r.price, 3), total: dec(r.total), km: r.km != null ? String(Math.round(r.km)) : "" });
+  const remove = (id: string) => refuelsStore.set((l) => l.filter((x) => x.id !== id));
 
   const blank = (): Form => ({ date: today, name: "", brand: "", fuel: settings.fuel, liters: "", price: "", total: "", km: "" });
 
@@ -76,7 +107,7 @@ export function Refuels() {
   const save = () => {
     if (!form || !valid) return;
     const r: Refuel = {
-      id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+      id: form.id ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
       date: form.date,
       name: form.name.trim() || "Gasolinera",
       brand: form.brand.trim() || form.name.trim() || "Gasolinera",
@@ -88,7 +119,7 @@ export function Refuels() {
       total: ft!,
       km: num(form.km) ?? undefined,
     };
-    refuelsStore.set((l) => [...l, r].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).slice(0, 500));
+    refuelsStore.set((l) => [...l.filter((x) => x.id !== r.id), r].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).slice(0, 500));
     setForm(null);
   };
 
@@ -215,13 +246,8 @@ export function Refuels() {
                     </span>
                   </span>
                   <strong className="b16 nowrap">{fmtEuros(r.total)} €</strong>
-                  <button
-                    type="button"
-                    className="icon-btn ghost"
-                    aria-label={`Borrar el repostaje del ${dayText(r.date)}`}
-                    onClick={() => refuelsStore.set((l) => l.filter((x) => x.id !== r.id))}
-                  >
-                    <Icon name="trash" size={18} />
+                  <button type="button" className="mini-btn" aria-label={`Modificar el repostaje del ${dayText(r.date)}`} onClick={() => edit(r)}>
+                    Editar
                   </button>
                 </div>
               ))}
@@ -236,12 +262,40 @@ export function Refuels() {
       <Sheet open={!!form} onClose={() => setForm(null)} label="Apuntar repostaje">
         {form && (
           <div className="stack-14">
-            <h2 className="h-sheet">Apuntar repostaje</h2>
+            <h2 className="h-sheet">{form.id ? "Modificar repostaje" : "Apuntar repostaje"}</h2>
             <div className="rf-form">
               <label className="rf-field wide">
-                <span>Gasolinera</span>
+                <span>Gasolinera{!form.id && loc ? " (escribe para buscar entre las cercanas)" : ""}</span>
                 <input type="text" maxLength={80} placeholder="Por ejemplo: Plenergy L'Hospitalet" value={form.name} onChange={(e) => set({ name: e.target.value, stationId: undefined, munId: undefined, brand: "" })} />
               </label>
+              {!form.id && !form.stationId && (
+                <div className="rf-near wide">
+                  {!loc && (
+                    <button type="button" className="btn soft small" onClick={locate} disabled={status === "locating"}>
+                      <Icon name="pin" size={16} /> {status === "locating" ? "Buscando…" : "Elegir entre las gasolineras cercanas"}
+                    </button>
+                  )}
+                  {loc && near.loading && !near.data && <span className="muted b12">Buscando gasolineras cercanas…</span>}
+                  {nearList.slice(0, more ? 12 : 4).map((st) => (
+                    <button key={st.id} type="button" className="rf-pick" onClick={() => pick(st)}>
+                      <BrandTile brand={st.brand} size={32} />
+                      <span className="col-2 grow min0">
+                        <span className="b14 ellipsis">{st.name}</span>
+                        <span className="muted xs ellipsis">
+                          {fmtKm(st.dist)} · {st.address}
+                        </span>
+                      </span>
+                      <strong className="b14 nowrap">{st.prices[form.fuel] != null ? `${fmtPrice(st.prices[form.fuel])} €` : "—"}</strong>
+                    </button>
+                  ))}
+                  {loc && near.data && nearList.length === 0 && <span className="muted b12">Ninguna cercana con ese nombre: se guardará tal como lo has escrito.</span>}
+                  {!more && nearList.length > 4 && (
+                    <button type="button" className="link-btn" onClick={() => setMore(true)}>
+                      Ver más cercanas
+                    </button>
+                  )}
+                </div>
+              )}
               <label className="rf-field">
                 <span>Fecha</span>
                 <input type="date" max={today} value={form.date} onChange={(e) => set({ date: e.target.value })} />
@@ -265,15 +319,20 @@ export function Refuels() {
             </div>
             <div className="chips wrap" role="group" aria-label="Combustible">
               {FUELS.filter((f) => settings.fuels.includes(f.key) || f.key === form.fuel).map((f) => (
-                <button key={f.key} type="button" className={`chip${f.key === form.fuel ? " on" : ""}`} aria-pressed={f.key === form.fuel} onClick={() => set({ fuel: f.key })}>
+                <button key={f.key} type="button" className={`chip${f.key === form.fuel ? " on" : ""}`} aria-pressed={f.key === form.fuel} onClick={() => pickFuel(f.key)}>
                   {f.chip}
                 </button>
               ))}
             </div>
             <span className="muted b12">Escribe el precio y el importe (o los litros): el otro dato se calcula solo.</span>
             <button type="button" className="btn primary big" disabled={!valid} onClick={save}>
-              Guardar repostaje
+              {form.id ? "Guardar cambios" : "Guardar repostaje"}
             </button>
+            {form.id && (
+              <button type="button" className="btn soft danger" onClick={() => (remove(form.id!), setForm(null))}>
+                <Icon name="trash" size={18} /> Borrar este repostaje
+              </button>
+            )}
           </div>
         )}
       </Sheet>

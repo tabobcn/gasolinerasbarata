@@ -2003,3 +2003,8 @@ img.side-logo { background: none; border-radius: 0; }
 @media (min-width: 1024px) {
   .rf-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+.rf-near { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px; }
+.rf-pick { all: unset; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; background: var(--bg); min-height: 44px; box-sizing: border-box; }
+.rf-pick:hover, .rf-pick:focus-visible { box-shadow: inset 0 0 0 2px var(--green); }
+.btn.soft.danger { color: var(--red); }
+.rf-near button.link-btn { all: unset; cursor: pointer; align-self: flex-start; padding: 8px 4px; font-size: 13px; font-weight: 800; color: var(--green); }

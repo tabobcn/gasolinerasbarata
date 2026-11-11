@@ -14,11 +14,11 @@ import { InstallHint } from "../InstallHint";
 import { Welcome } from "../Welcome";
 import { BottomNav, BrandTile, EmptyState, FuelChips, ModeTabs, Sheet, Skeleton } from "../ui";
 import { Icon } from "../Icon";
-import { favoritesStore, modeStore, settingsStore, useFavorites, useSettings } from "@/lib/store";
+import { favoritesStore, modeStore, settingsStore, useFavorites, useRefuels, useSettings } from "@/lib/store";
 import { stationsUrl, useJSON } from "@/lib/useJSON";
 import type { StationsResponse } from "@/lib/types";
 import { average, bestValue } from "@/lib/savings";
-import { fmtCents, fmtEuros, fmtKm, fmtPrice, timeAgo } from "@/lib/format";
+import { fmtCents, fmtEuros, fmtKm, fmtPrice, madridDate, timeAgo } from "@/lib/format";
 import { fuelByKey } from "@/lib/fuels";
 import { openStatus } from "@/lib/hours";
 import { useDiscounts } from "@/lib/discountStore";
@@ -57,6 +57,9 @@ export function Home() {
   const isFav = best ? favs.some((f) => f.id === best.station.id) : false;
   const goTo = useNavigate();
   const carName = settings.carName?.trim();
+  const [refuels] = useRefuels();
+  const ym = madridDate(new Date()).slice(0, 7);
+  const monthSpend = refuels.length ? refuels.filter((r) => r.date.startsWith(ym)).reduce((a, r) => a + r.total, 0) : null;
 
   const toggleFav = () => {
     if (!best) return;
@@ -226,6 +229,19 @@ export function Home() {
           </section>
         )}
 
+        {data && (
+          <Link href="/repostajes" className="card row-12 tight-y plain">
+            <span className="soft-icon green" aria-hidden="true">
+              <Icon name="trendDown" size={20} />
+            </span>
+            <span className="col-2 grow min0">
+              <span className="b14">Mis repostajes</span>
+              <span className="muted b12">{monthSpend != null ? `Este mes llevas ${fmtEuros(monthSpend)} € en combustible` : "Apunta lo que echas y mira cuánto gastas al mes"}</span>
+            </span>
+            <span className="link-btn">{monthSpend != null ? "Ver" : "Empezar"}</span>
+          </Link>
+        )}
+
         {best && <InstallHint />}
 
         {view && view.others.length > 0 && (
@@ -243,19 +259,6 @@ export function Home() {
               <Icon name="map" size={18} /> Ver las {view.count} en el mapa
             </Link>
           </>
-        )}
-
-        {data && (
-          <Link href="/repostajes" className="card row-12 tight-y plain">
-            <span className="soft-icon green" aria-hidden="true">
-              <Icon name="trendDown" size={20} />
-            </span>
-            <span className="col-2 grow min0">
-              <span className="b14">Mis repostajes</span>
-              <span className="muted b12">Apunta lo que echas y mira cuánto gastas al mes</span>
-            </span>
-            <span className="link-btn">Abrir</span>
-          </Link>
         )}
 
         {data && (

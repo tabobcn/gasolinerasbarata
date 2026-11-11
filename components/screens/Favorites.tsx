@@ -14,8 +14,11 @@ import { fmtPrice, signedCents } from "@/lib/format";
 import { useDiscounts } from "@/lib/discountStore";
 import { applyDiscounts, discountFor } from "@/lib/discounts";
 
+const PLACE_RADII = [2, 5, 10, 20];
+
 function PlaceCard({ p, fuel }: { p: SavedPlace; fuel: FuelKey }) {
-  const { data, loading } = useJSON<StationsResponse>(stationsUrl(p.lat, p.lon, 5));
+  const radius = p.radius ?? 5;
+  const { data, loading } = useJSON<StationsResponse>(stationsUrl(p.lat, p.lon, radius));
   const [d] = useDiscounts();
   const cheapest = applyDiscounts(data?.stations ?? [], d)
     .filter((s) => s.prices[fuel] != null)
@@ -29,7 +32,9 @@ function PlaceCard({ p, fuel }: { p: SavedPlace; fuel: FuelKey }) {
         </span>
         <span className="col-2 grow min0">
           <span className="b15">{p.label}</span>
-          <span className="muted xs ellipsis">{p.detail} · 5 km</span>
+          <span className="muted xs ellipsis">
+            {p.detail} · {radius} km
+          </span>
         </span>
         <span className="col-2 end">
           <span className="muted xs">Más barata ahora</span>
@@ -40,6 +45,14 @@ function PlaceCard({ p, fuel }: { p: SavedPlace; fuel: FuelKey }) {
         <Link href={`/alertas/nueva?zone=${p.id}`} className="mini-btn">
           <Icon name="bell" size={14} /> Alerta
         </Link>
+        <button
+          type="button"
+          className="mini-btn"
+          aria-label={`Radio de ${p.label}: ${radius} km. Toca para cambiarlo`}
+          onClick={() => placesStore.set((list) => list.map((x) => (x.id === p.id ? { ...x, radius: PLACE_RADII[(PLACE_RADII.indexOf(radius) + 1) % PLACE_RADII.length] } : x)))}
+        >
+          <Icon name="pin" size={14} /> {radius} km
+        </button>
         <button type="button" className="mini-btn" onClick={() => placesStore.set((list) => list.filter((x) => x.id !== p.id))} aria-label={`Quitar ${p.label}`}>
           <Icon name="trash" size={14} /> Quitar
         </button>
@@ -57,6 +70,7 @@ export function Favorites() {
   const [adding, setAdding] = useState<null | SavedPlace["kind"]>(null);
   const [kindPick, setKindPick] = useState(false);
   const [customName, setCustomName] = useState("");
+  const [newRadius, setNewRadius] = useState(5);
 
   const items = favs.map((f) => `${f.id}:${f.m}`).join(",");
   const lookup = useJSON<{ items: { station: Station; yesterday: Prices | null }[] }>(favs.length ? `/api/stations/lookup?items=${items}` : null);
@@ -150,12 +164,22 @@ export function Favorites() {
       <Sheet open={!!adding} onClose={() => setAdding(null)} label="Buscar dirección del sitio">
         <div className="stack-12">
           <h2 className="h-sheet">¿Dónde está {adding === "casa" ? "tu casa" : adding === "trabajo" ? "tu trabajo" : customName}?</h2>
+          <div className="stack-8">
+            <span className="eyebrow">BUSCAR GASOLINERAS A</span>
+            <div className="chips">
+              {PLACE_RADII.map((r) => (
+                <button key={r} type="button" className={`chip${newRadius === r ? " on" : ""}`} aria-pressed={newRadius === r} onClick={() => setNewRadius(r)}>
+                  {r} km
+                </button>
+              ))}
+            </div>
+          </div>
           <PlaceSearch
             autoFocus
             placeholder="Calle, barrio o municipio"
             onPick={(pl) => {
               const label = adding === "casa" ? "Casa" : adding === "trabajo" ? "Trabajo" : customName.trim();
-              placesStore.set((list) => [...list, { id: uid(), kind: adding!, label, detail: pl.detail ? `${pl.label}, ${pl.detail.split(",")[0]}` : pl.label, lat: pl.lat, lon: pl.lon }]);
+              placesStore.set((list) => [...list, { id: uid(), kind: adding!, label, detail: pl.detail ? `${pl.label}, ${pl.detail.split(",")[0]}` : pl.label, lat: pl.lat, lon: pl.lon, radius: newRadius }]);
               setAdding(null);
               setCustomName("");
             }}

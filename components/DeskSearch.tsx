@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useLocation } from "./LocationProvider";
 import { PlaceSearch } from "./PlaceSearch";
-import { usePlaces } from "@/lib/store";
+import { settingsStore, usePlaces } from "@/lib/store";
 
 /** Buscador grande siempre a la vista: solo en ordenador, donde la ubicación automática suele fallar */
 export function DeskSearch({ title }: { title: string }) {
@@ -26,7 +26,10 @@ export function DeskSearch({ title }: { title: string }) {
       {places.length > 0 && (
         <div className="chips wrap">
           {places.map((p) => (
-            <button key={p.id} type="button" className="chip" onClick={() => setPlace({ lat: p.lat, lon: p.lon, label: p.label })}>
+            <button key={p.id} type="button" className="chip" onClick={() => {
+                setPlace({ lat: p.lat, lon: p.lon, label: p.label });
+                if (p.radius) settingsStore.set((st) => ({ ...st, radius: p.radius! }));
+              }}>
               {p.label}
             </button>
           ))}
