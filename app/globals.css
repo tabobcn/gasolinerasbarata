@@ -1962,3 +1962,10 @@ button {
 .pchart-label.right { left: auto; right: -4px; transform: none; }
 .pchart-dot.last .pchart-label, .pchart-dot.min .pchart-label { color: var(--green); }
 .pchart-dot.max .pchart-label { color: var(--red); }
+
+/* Coste de llenar el depósito (ficha) y logo del menú */
+.fill-line { margin: 0; display: flex; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: 14px; background: var(--surface); font-size: 14px; font-weight: 700; box-shadow: var(--shadow-1); }
+.saving-box .row-between { font-size: 15px; }
+img.side-logo { background: none; border-radius: 0; }
+.offer > .col-2 { min-width: 0; flex: 1; }
+.offer .btn.small { white-space: normal; height: auto; padding: 8px 12px; text-align: left; justify-content: flex-start; line-height: 1.3; }

@@ -11,6 +11,7 @@ import { useDesktop } from "@/lib/useDesktop";
 import { StationRow, stationHref } from "../StationRow";
 import { AlertsBanner } from "../AlertsBanner";
 import { InstallHint } from "../InstallHint";
+import { Welcome } from "../Welcome";
 import { BottomNav, BrandTile, EmptyState, FuelChips, ModeTabs, Sheet, Skeleton } from "../ui";
 import { Icon } from "../Icon";
 import { favoritesStore, modeStore, settingsStore, useFavorites, useSettings } from "@/lib/store";
@@ -55,6 +56,7 @@ export function Home() {
   const bestPrice = best ? best.station.prices[fuel]! : null;
   const isFav = best ? favs.some((f) => f.id === best.station.id) : false;
   const goTo = useNavigate();
+  const carName = settings.carName?.trim();
 
   const toggleFav = () => {
     if (!best) return;
@@ -81,6 +83,8 @@ export function Home() {
             <Icon name="search" size={20} />
           </button>
         </div>
+
+        <Welcome />
 
         <ModeTabs mode="fuel" />
 
@@ -189,13 +193,19 @@ export function Home() {
               )}
             </div>
             <div className="saving-box">
+              <span className="row-between">
+                <span>
+                  Llenar {settings.tank} litros{carName ? ` · ${carName}` : ""}
+                </span>
+                <strong>{fmtEuros(bestPrice * settings.tank)} €</strong>
+              </span>
               {best.savings >= 0.1 ? (
-                <>
-                  Ahorras <strong>{fmtEuros(best.savings)} €</strong> llenando {settings.tank} litros
-                  <span className="muted xs block">Ya descontado lo que gastas en ir y volver</span>
-                </>
+                <span className="muted xs block">
+                  Ahorras <strong className="green">{fmtEuros(best.savings)} €</strong> frente al precio medio de las otras gasolineras de tu zona ({fmtPrice(best.avg)} €/l), ya
+                  descontado lo que gastas en ir y volver
+                </span>
               ) : (
-                <>La mejor relación precio-distancia de tu zona</>
+                <span className="muted xs block">La mejor relación precio-distancia de tu zona</span>
               )}
             </div>
             <div className="row-10">

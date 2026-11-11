@@ -23,9 +23,7 @@ export function SideNav() {
   return (
     <nav aria-label="Secciones" className="side-nav">
       <Link href="/" className="side-brand">
-        <span className="side-logo" aria-hidden="true">
-          <Icon name="pump" size={20} color="#FFFFFF" />
-        </span>
+        <img src="/icon.svg" alt="" width={36} height={36} className="side-logo" />
         {APP_NAME}
       </Link>
       <div className="side-links">

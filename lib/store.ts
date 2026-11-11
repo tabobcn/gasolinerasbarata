@@ -71,6 +71,7 @@ export type CarType = "gas" | "diesel" | "phev" | "ev";
 export type NavApp = "maps" | "waze";
 
 export type Settings = {
+  carName?: string; // nombre que le pone el usuario ("Cupra Formentor híbrido")
   carType: CarType;
   fuels: FuelKey[]; // combustibles que usa
   fuel: FuelKey; // el seleccionado ahora

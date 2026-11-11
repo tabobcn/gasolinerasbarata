@@ -41,7 +41,12 @@ export function MyCar() {
   const save = () => {
     const fuels = s.fuels.length ? s.fuels : DEFAULT_SETTINGS.fuels;
     const fuel = fuels.includes(s.fuel) ? s.fuel : fuels[0];
-    settingsStore.set({ ...s, fuels, fuel });
+    settingsStore.set({ ...s, carName: s.carName?.trim() || undefined, fuels, fuel });
+    try {
+      window.localStorage.setItem("gc.welcome", "1"); // ya no hace falta la bienvenida
+    } catch {
+      /* nada */
+    }
     router.push("/");
   };
 
@@ -57,6 +62,16 @@ export function MyCar() {
           <h1 className="h1">Mi coche</h1>
         </div>
         <span className="muted b14">Así solo te enseñamos lo que sirve para tu coche y calculamos cuánto te cuesta llenar.</span>
+
+        <section className="card stack-10">
+          <label className="eyebrow" htmlFor="car-name">
+            NOMBRE DE TU COCHE (OPCIONAL)
+          </label>
+          <span className="search-box">
+            <Icon name="car" size={20} color="#5B6675" />
+            <input id="car-name" type="text" maxLength={40} autoComplete="off" placeholder="Por ejemplo: Cupra Formentor híbrido" value={s.carName ?? ""} onChange={(e) => set({ carName: e.target.value })} />
+          </span>
+        </section>
 
         <section className="card stack-10">
           <h2 className="eyebrow">TIPO DE COCHE</h2>

@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { useJSON } from "@/lib/useJSON";
 import type { HistoryResponse, StationDetailResponse } from "@/lib/types";
 import { FUELS, fuelByKey } from "@/lib/fuels";
-import { fmtKm, fmtPrice, signedCents, etaMin, timeAgo } from "@/lib/format";
+import { fmtEuros, fmtKm, fmtPrice, signedCents, etaMin, timeAgo } from "@/lib/format";
 import { openStatus, prettySchedule } from "@/lib/hours";
 import { haversineKm } from "@/lib/geo";
 import { favoritesStore, useFavorites, useSettings } from "@/lib/store";
@@ -189,6 +189,15 @@ export function StationDetail({ id, m }: { id: string; m: string | null }) {
               })}
               {FUELS.every((f) => st.prices[f.key] == null) && <p className="muted sm pad">Esta estación no publica precios de los combustibles habituales.</p>}
             </div>
+
+            {st.prices[histFuel] != null && (
+              <p className="fill-line">
+                <span>
+                  Llenar {settings.tank} litros de {fuelByKey(histFuel)?.label.toLowerCase()}
+                </span>
+                <strong>{fmtEuros((st.prices[histFuel]! - (myDisc ? myDisc.cts / 100 : 0)) * settings.tank)} €</strong>
+              </p>
+            )}
 
             {myDisc && (
               <Link href="/descuentos" className="note amber link">

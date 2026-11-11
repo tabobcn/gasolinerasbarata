@@ -13,7 +13,7 @@ export function InstallHint() {
     try {
       const standalone = window.matchMedia("(display-mode: standalone)").matches || (navigator as { standalone?: boolean }).standalone === true;
       const mobile = window.matchMedia("(max-width: 1023px) and (pointer: coarse)").matches;
-      setShow(mobile && !standalone && localStorage.getItem(KEY) !== "1");
+      setShow(mobile && !standalone && localStorage.getItem(KEY) !== "1" && (localStorage.getItem("gc.welcome") === "1" || localStorage.getItem("gc.settings") != null));
     } catch {
       /* sin almacenamiento: no se muestra */
     }

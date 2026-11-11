@@ -126,7 +126,7 @@ export function carFrom(s: Settings): Car {
     ac: s.ac,
     dc: s.dc,
     battery: s.battery,
-    label: s.carType === "ev" ? "eléctrico" : "híbrido",
+    label: s.carName?.trim() || (s.carType === "ev" ? "eléctrico" : "híbrido"),
   };
 }
 

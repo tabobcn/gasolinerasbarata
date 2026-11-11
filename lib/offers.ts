@@ -26,13 +26,19 @@ export const OFFERS: Offer[] = [
     id: "waylet-2026-11",
     program: "repsol",
     brand: "REPSOL",
-    title: "Waylet: de 10 a 45 cts/l en saldo",
+    title: "Waylet: de 10 a 40 cts/l en saldo",
     detail:
-      "Depende de los servicios que tengas con Repsol (luz, gas, solar…). Pagando con la Tarjeta Waylet se duplica el saldo hasta el 30 de noviembre. Se da como saldo, no como rebaja en el surtidor.",
+      "Todos los días de noviembre, pagando con Waylet se duplica el saldo. Cuánto te toca depende de lo que tengas contratado con Repsol. Se da como saldo para otros repostajes, no como rebaja en el surtidor.",
     until: "2026-11-30",
     url: "https://www.repsol.es/particulares/asesoramiento-consumo/consigue-descuentos-en-gasolina-con-waylet/",
-    checked: "2026-11-04",
-    cts: 10,
+    checked: "2026-11-11",
+    requires: "tener la app Waylet y pagar el repostaje con ella",
+    tiers: [
+      { label: "Coche", cts: 10 },
+      { label: "Coche y luz", cts: 20 },
+      { label: "Coche, luz y gas", cts: 30 },
+      { label: "Coche, luz, gas y solar", cts: 40 },
+    ],
     kind: "saldo",
   },
 ];
