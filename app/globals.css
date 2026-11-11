@@ -1929,3 +1929,36 @@ button {
   flex-shrink: 0;
 }
 .legal .legal-text { font-size: 15px; }
+
+/* ===== Gráfica de precios con puntos (ficha de gasolinera) ===== */
+.pchart { display: flex; flex-direction: column; gap: 6px; }
+.pchart-plot { position: relative; height: 96px; margin: 26px 8px 22px; }
+.pchart-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.pchart-area { fill: var(--green-bg); }
+.pchart-line { fill: none; stroke: var(--green); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.pchart-dot {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 0 0 2px var(--green);
+}
+.pchart-dot.last { width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px; background: var(--green); box-shadow: 0 0 0 3px var(--surface), 0 0 0 4px var(--green); }
+.pchart-dot.max { box-shadow: 0 0 0 2px var(--red); }
+.pchart-label {
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.pchart-label.below { bottom: auto; top: calc(100% + 7px); }
+.pchart-label.left { left: -4px; transform: none; }
+.pchart-label.right { left: auto; right: -4px; transform: none; }
+.pchart-dot.last .pchart-label, .pchart-dot.min .pchart-label { color: var(--green); }
+.pchart-dot.max .pchart-label { color: var(--red); }

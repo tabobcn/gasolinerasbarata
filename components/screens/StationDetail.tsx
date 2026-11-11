@@ -49,12 +49,33 @@ export function StationDetail({ id, m }: { id: string; m: string | null }) {
     const min = Math.min(...prices);
     const max = Math.max(...prices);
     const span = Math.max(0.01, max - min);
-    const bars = hist.data!.points.map((p, i, arr) => ({
-      h: p.price == null ? 4 : 18 + ((p.price - min) / span) * 54,
-      last: i === arr.length - 1,
-      empty: p.price == null,
-      label: `${p.date}: ${p.price != null ? fmtPrice(p.price) + " €" : "sin dato"}`,
+    // Gráfica de puntos: posición de cada día en % (x) y en % de la altura útil (y); los días sin dato se saltan
+    const all = hist.data!.points;
+    const n = all.length;
+    const dots = all
+      .map((p, i) => ({ i, price: p.price, date: p.date }))
+      .filter((p): p is { i: number; price: number; date: string } => p.price != null)
+      .map((p) => ({ ...p, x: n > 1 ? (p.i / (n - 1)) * 100 : 50, y: max - min < 0.0005 ? 50 : ((max - p.price) / span) * 100 }));
+    const lastDot = dots[dots.length - 1];
+    const minDot = [...dots].reverse().find((d) => d.price === min)!;
+    const maxDot = dots.find((d) => d.price === max)!;
+    // Etiquetas con el precio: el último día siempre, y el más caro y el más barato si son otros días
+    const labelled = new Map<number, "last" | "min" | "max">([[lastDot.i, "last"]]);
+    if (max - min >= 0.005) {
+      if (!labelled.has(minDot.i)) labelled.set(minDot.i, "min");
+      if (!labelled.has(maxDot.i)) labelled.set(maxDot.i, "max");
+    }
+    const day = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("es-ES", { day: "numeric", month: "short" }).replace(".", "");
+    const points = dots.map((d) => ({
+      ...d,
+      tag: labelled.get(d.i) ?? null,
+      text: `${fmtPrice(d.price)} €`,
+      title: `${day(d.date)}: ${fmtPrice(d.price)} €`,
+      align: d.x < 12 ? "left" : d.x > 88 ? "right" : "mid",
     }));
+    const line = dots.map((d) => `${d.x.toFixed(2)},${d.y.toFixed(2)}`).join(" ");
+    const area = `${dots[0].x.toFixed(2)},100 ${line} ${lastDot.x.toFixed(2)},100`;
+    const axis = { from: day(all[0].date), to: "Hoy", min: fmtPrice(min), max: fmtPrice(max) };
     const diff = prices[prices.length - 1] - prices[0];
     // ¿qué día de la semana suele estar más barata?
     const byDay = new Map<number, number[]>();
@@ -66,7 +87,7 @@ export function StationDetail({ id, m }: { id: string; m: string | null }) {
     const avgAll = prices.reduce((a, b) => a + b, 0) / prices.length;
     const ranked = [...byDay.entries()].map(([d, v]) => [d, v.reduce((a, b) => a + b, 0) / v.length] as const).sort((a, b) => a[1] - b[1]);
     const cheapDay = ranked[0] && avgAll - ranked[0][1] >= 0.005 ? WEEKDAYS[ranked[0][0]] : null;
-    return { bars, diff, cheapDay, stable: max - min < 0.005 };
+    return { points, line, area, axis, diff, cheapDay, stable: max - min < 0.005 };
   }, [hist.data]);
 
   const toggleFav = () => {
@@ -195,10 +216,22 @@ export function StationDetail({ id, m }: { id: string; m: string | null }) {
               </div>
               {hist.loading && !hist.data && <Skeleton h={72} r={8} />}
               {chart && (
-                <div className="bars" role="img" aria-label={`Evolución del precio en 14 días: ${signedCents(chart.diff)}`}>
-                  {chart.bars.map((b, i) => (
-                    <span key={i} title={b.label} className={`bar${b.last ? " last" : ""}${b.empty ? " empty" : ""}`} style={{ height: b.h }} />
-                  ))}
+                <div className="pchart" role="img" aria-label={`Evolución del precio en 14 días: de ${chart.points[0].text} a ${chart.points[chart.points.length - 1].text}`}>
+                  <div className="pchart-plot">
+                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                      <polygon points={chart.area} className="pchart-area" />
+                      <polyline points={chart.line} className="pchart-line" vectorEffect="non-scaling-stroke" />
+                    </svg>
+                    {chart.points.map((d) => (
+                      <span key={d.i} title={d.title} className={`pchart-dot${d.tag ? ` ${d.tag}` : ""}`} style={{ left: `${d.x}%`, top: `${d.y}%` }}>
+                        {d.tag && <span className={`pchart-label ${d.align}${d.tag === "min" || (d.tag === "last" && d.y > 60) ? " below" : ""}`}>{d.text}</span>}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="row-between muted b12">
+                    <span>{chart.axis.from}</span>
+                    <span>{chart.axis.to}</span>
+                  </div>
                 </div>
               )}
               {chart && (
