@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { brandStyle, tileCss } from "@/lib/brands";
+import { brandStyle, LOGO_IMG, tileCss } from "@/lib/brands";
 import { fmtPrice } from "@/lib/format";
 import { fuelByKey, type FuelKey } from "@/lib/fuels";
 import { levelFor } from "@/lib/savings";
@@ -19,7 +19,7 @@ export function SeoStationRow({ s, fuel, avg, rank }: { s: Station; fuel: FuelKe
           {rank}
         </span>
         <span aria-hidden="true" style={tileCss(b, 36)}>
-          {b.mark}
+          {b.logo ? <img src={b.logo} alt="" width={36} height={36} loading="lazy" decoding="async" style={LOGO_IMG} /> : b.mark}
         </span>
         <span className="col-2 grow min0">
           <span className="b15 ellipsis">{s.name}</span>

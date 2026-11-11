@@ -2,7 +2,7 @@ import { madridDate } from "./format";
 
 /**
  * Ofertas activas de las marcas. NO hay fuente oficial de promociones:
- * esta lista se mantiene A MANO. Cada oferta desaparece sola al pasar su fecha "until".
+ * esta lista se revisa cada mes (tarea programada + visto bueno de Carlos). Cada oferta desaparece sola al pasar su fecha "until".
  */
 export type Offer = {
   id: string;
@@ -13,6 +13,12 @@ export type Offer = {
   until: string; // AAAA-MM-DD (incluido)
   url: string;
   checked: string; // AAAA-MM-DD en que se revisó
+  cts?: number; // descuento que se propone al pulsar "Activar" (céntimos por litro)
+  tiers?: { label: string; cts: number }[]; // varios niveles: cada uno elige el suyo ("Solo Waylet", "Con luz"…)
+  requires?: string; // qué hace falta para tenerla ("Ser de Moeve gow")
+  signup?: { text: string; url: string }; // enlace para apuntarse
+  draft?: boolean; // preparada pero sin publicar (pendiente del visto bueno)
+  kind?: "directo" | "saldo"; // en el surtidor o como saldo para otro repostaje
 };
 
 export const OFFERS: Offer[] = [
@@ -26,12 +32,14 @@ export const OFFERS: Offer[] = [
     until: "2026-11-30",
     url: "https://www.repsol.es/particulares/asesoramiento-consumo/consigue-descuentos-en-gasolina-con-waylet/",
     checked: "2026-11-04",
+    cts: 10,
+    kind: "saldo",
   },
 ];
 
 export function activeOffers(today = new Date()): Offer[] {
   const iso = madridDate(today);
-  return OFFERS.filter((o) => o.until >= iso);
+  return OFFERS.filter((o) => !o.draft && o.until >= iso);
 }
 
 export function fmtDay(iso: string): string {

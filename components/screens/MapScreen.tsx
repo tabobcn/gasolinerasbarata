@@ -228,7 +228,11 @@ export function MapScreen() {
         node.style.background = lv.color;
       } else {
         node.innerHTML = `<span class="pin-pill">
-            <span class="pin-tile" style="background:${b.bg};color:${b.fg};${b.stripe ? `box-shadow:inset 0 -4px 0 ${b.stripe}` : ""}">${esc(b.mark)}</span>
+            ${
+              b.logo
+                ? `<span class="pin-tile logo"><img src="${b.logo}" alt="" loading="lazy" decoding="async"></span>`
+                : `<span class="pin-tile" style="background:${b.bg};color:${b.fg};${b.stripe ? `box-shadow:inset 0 -4px 0 ${b.stripe}` : ""}">${esc(b.mark)}</span>`
+            }
             <span class="pin-price" style="${on ? "" : `color:${lv.color}`}">${fmtPrice(p)}</span>
           </span><span class="pin-tip"></span>`;
       }

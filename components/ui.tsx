@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { brandStyle, tileCss } from "@/lib/brands";
+import { brandStyle, LOGO_IMG, tileCss } from "@/lib/brands";
 import { fuelByKey, type FuelKey } from "@/lib/fuels";
 import { useMode } from "@/lib/store";
 import { Icon, type IconName } from "./Icon";
@@ -12,7 +12,7 @@ export function BrandTile({ brand, size = 40 }: { brand: string; size?: number }
   const b = brandStyle(brand);
   return (
     <span aria-hidden="true" style={tileCss(b, size)}>
-      {b.mark}
+      {b.logo ? <img src={b.logo} alt="" width={size} height={size} loading="lazy" decoding="async" style={LOGO_IMG} /> : b.mark}
     </span>
   );
 }

@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { titleCase } from "./format";
 
-export type BrandStyle = { mark: string; bg: string; fg: string; stripe?: string };
+export type BrandStyle = { mark: string; bg: string; fg: string; stripe?: string; logo?: string };
 
 // Colores aproximados para reconocer la marca de un vistazo (no son logotipos).
 const KNOWN: Record<string, BrandStyle & { name?: string }> = {
@@ -36,6 +36,16 @@ const KNOWN: Record<string, BrandStyle & { name?: string }> = {
   VALCARCE: { mark: "VA", bg: "#00529B", fg: "#FFFFFF", name: "Valcarce" },
   NATURGY: { mark: "N", bg: "#004571", fg: "#F7A600", name: "Naturgy" },
 };
+
+// Logotipos en public/iconos (PNG cuadrado). Si una marca no tiene archivo, se dibuja la ficha de color.
+const LOGO_FILES: Record<string, string> = {
+  REPSOL: "repsol", "REPSOL BUTANO": "repsol", CAMPSA: "campsa", "CAMPSA EXPRESS": "campsa", PETRONOR: "petronor",
+  MOEVE: "moeve", CEPSA: "cepsa", BP: "bp", SHELL: "shell", GALP: "galp", BALLENOIL: "ballenoil", PLENERGY: "plenergy",
+  PLENOIL: "plenoil", PETROPRIX: "petroprix", CARREFOUR: "carrefour", ALCAMPO: "alcampo", EROSKI: "eroski", AVIA: "avia",
+  Q8: "q8", ESCLATOIL: "esclatoil", BONAREA: "bonarea", ENI: "eni", DISA: "disa", TAMOIL: "tamoil", MEROIL: "meroil",
+  PETROCAT: "petrocat", "PETROCAT DIRECTE": "petrocat", "E.LECLERC": "eleclerc", VALCARCE: "valcarce", NATURGY: "naturgy",
+};
+for (const [k, f] of Object.entries(LOGO_FILES)) if (KNOWN[k]) KNOWN[k].logo = `/iconos/${f}.png`;
 
 /** Marcas conocidas (sin repetir nombre), para elegir en "Añadir otro descuento" */
 export function knownBrandList(): { key: string; name: string }[] {
@@ -102,7 +112,24 @@ export function fixMunicipality(m: string): string {
   return art.endsWith("'") ? `${art}${match[1]}` : `${art} ${match[1]}`;
 }
 
+/** Estilo de la imagen del logotipo dentro de la ficha */
+export const LOGO_IMG: CSSProperties = { width: "84%", height: "84%", objectFit: "contain", display: "block" };
+
 export function tileCss(b: BrandStyle, size: number): CSSProperties {
+  if (b.logo)
+    return {
+      width: size,
+      height: size,
+      borderRadius: Math.round(size * 0.3),
+      background: "#FFFFFF",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+      boxSizing: "border-box",
+      overflow: "hidden",
+      boxShadow: "inset 0 0 0 1px rgba(14, 23, 38, 0.1)",
+    };
   return {
     width: size,
     height: size,

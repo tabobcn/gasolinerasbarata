@@ -1036,6 +1036,8 @@ button {
 }
 .pin.on .pin-price { color: #fff; font-size: 17px; }
 .pin.on .pin-tile { width: 28px; height: 28px; font-size: 12px; }
+.pin-tile.logo { background: #fff; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(14, 23, 38, 0.1); }
+.pin-tile.logo img { width: 84%; height: 84%; object-fit: contain; display: block; }
 .pin.on .pin-tip { background: var(--green); }
 .pin-dot {
   all: unset;

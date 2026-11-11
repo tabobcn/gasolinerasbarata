@@ -7,7 +7,7 @@ import { BrandTile, Sheet } from "../ui";
 import { useLocation } from "../LocationProvider";
 import { stationHref } from "../StationRow";
 import { discountsStore, useDiscounts } from "@/lib/discountStore";
-import { allPrograms, applyDiscount, customId, discountFor, type DiscountState } from "@/lib/discounts";
+import { allPrograms, applyDiscount, customId, discountFor, isLive, type DiscountState } from "@/lib/discounts";
 import { activeOffers, fmtDay } from "@/lib/offers";
 import { knownBrandList } from "@/lib/brands";
 import { useSettings } from "@/lib/store";
@@ -28,10 +28,11 @@ export function Discounts() {
   const programs = allPrograms(d);
   const offers = activeOffers();
 
-  const setItem = (id: string, patch: Partial<{ on: boolean; cts: number }>) =>
+  // Un cambio hecho a mano quita la fecha de fin (solo la llevan los descuentos activados desde una oferta)
+  const setItem = (id: string, patch: Partial<{ on: boolean; cts: number; until: string }>) =>
     setD((s: DiscountState) => {
       const cur = s.items[id] ?? { on: false, cts: 5 };
-      return { ...s, items: { ...s.items, [id]: { ...cur, ...patch } } };
+      return { ...s, items: { ...s.items, [id]: { on: cur.on, cts: cur.cts, ...patch } } };
     });
 
   // Ejemplo real: la gasolinera más cercana con alguno de tus descuentos
@@ -72,15 +73,15 @@ export function Discounts() {
                   <button
                     type="button"
                     role="switch"
-                    aria-checked={it.on}
+                    aria-checked={isLive(it)}
                     aria-label={`Usar descuento de ${p.name}`}
-                    className={`switch-btn${it.on ? " on" : ""}`}
-                    onClick={() => setItem(p.id, { on: !it.on })}
+                    className={`switch-btn${isLive(it) ? " on" : ""}`}
+                    onClick={() => setItem(p.id, { on: !isLive(it) })}
                   >
                     <span aria-hidden="true" />
                   </button>
                 </div>
-                {it.on && (
+                {isLive(it) && (
                   <div className="disc-amount">
                     <span className="b13">Descuento</span>
                     <span className="row-8">
@@ -132,11 +133,35 @@ export function Discounts() {
                 <a href={o.url} target="_blank" rel="noopener" className="b12">
                   Ver condiciones
                 </a>
+                {o.requires && <span className="xs">Hace falta: {o.requires}</span>}
+                {(o.tiers ?? (o.cts != null ? [{ label: "", cts: o.cts }] : [])).map((t) =>
+                  isLive(d.items[o.program]) && d.items[o.program].cts === t.cts && d.items[o.program].until === o.until ? (
+                    <span key={t.cts} className="b12 green">
+                      Activado{t.label ? ` (${t.label})` : ""}: {cts(t.cts)} hasta el {fmtDay(o.until)}
+                    </span>
+                  ) : (
+                    <button
+                      key={t.cts}
+                      type="button"
+                      className="btn soft small"
+                      onClick={() => (setD((x: DiscountState) => ({ ...x, enabled: true })), setItem(o.program, { on: true, cts: t.cts, until: o.until }))}
+                    >
+                      Activar {cts(t.cts)}
+                      {t.label ? ` · ${t.label}` : ""}
+                      {o.kind === "saldo" ? " (en saldo)" : ""}
+                    </button>
+                  ),
+                )}
+                {o.signup && (
+                  <a href={o.signup.url} target="_blank" rel="noopener" className="b12">
+                    {o.signup.text}
+                  </a>
+                )}
               </span>
             </div>
           ))}
           {!offers.length && <span className="muted sm">Ahora mismo no tenemos ofertas apuntadas.</span>}
-          <span className="muted b12">Las ofertas cambian a menudo y se revisan a mano. El precio con descuento es orientativo.</span>
+          <span className="muted b12">Las ofertas se revisan cada mes en las webs de cada marca. Actívala solo si tienes esa tarjeta o app. Al llegar su fecha de fin, el descuento se desactiva solo.</span>
         </section>
 
         {example && example.disc && example.listPrices && (

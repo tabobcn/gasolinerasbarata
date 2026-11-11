@@ -1,5 +1,6 @@
 import { brandKey, brandName, knownBrand } from "./brands";
 import type { Prices, Station } from "./types";
+import { madridDate } from "./format";
 
 /**
  * Descuentos de fidelización del usuario (céntimos por litro).
@@ -24,7 +25,11 @@ export const PROGRAMS: Program[] = [
   { id: "superm", name: "Tarjeta de supermercado", short: "Súper", sub: "Carrefour, Alcampo, Eroski y E.Leclerc", brands: ["CARREFOUR", "ALCAMPO", "EROSKI", "E.LECLERC"], tileBrand: "SUPER" },
 ];
 
-export type DiscountItem = { on: boolean; cts: number };
+/** `until` (AAAA-MM-DD): el descuento viene de una oferta con fecha de fin; pasado ese día deja de aplicarse solo */
+export type DiscountItem = { on: boolean; cts: number; until?: string };
+
+/** ¿Está activo hoy? (encendido, con importe y sin caducar) */
+export const isLive = (i: DiscountItem | undefined, today = madridDate()): i is DiscountItem => !!i && i.on && i.cts > 0 && (!i.until || i.until >= today);
 
 export type DiscountState = {
   enabled: boolean; // interruptor "Precios con mis descuentos"
@@ -45,7 +50,7 @@ export function allPrograms(d: DiscountState): Program[] {
 }
 
 export function activeCount(d: DiscountState): number {
-  return Object.values(d.items).filter((i) => i.on && i.cts > 0).length;
+  return Object.values(d.items).filter((i) => isLive(i)).length;
 }
 
 /** ¿Qué descuento del usuario se aplica a esta marca? */
@@ -55,10 +60,10 @@ export function discountFor(brand: string, d: DiscountState): { label: string; c
   if (!k) return null;
   // primero los añadidos a mano (más concretos)
   const own = d.items[customId(k)];
-  if (d.custom.includes(k) && own?.on && own.cts > 0) return { label: brandName(k), cts: own.cts };
+  if (d.custom.includes(k) && isLive(own)) return { label: brandName(k), cts: own.cts };
   for (const p of PROGRAMS) {
     const it = d.items[p.id];
-    if (it?.on && it.cts > 0 && p.brands.includes(k)) return { label: p.short, cts: it.cts };
+    if (isLive(it) && p.brands.includes(k)) return { label: p.short, cts: it.cts };
   }
   return null;
 }
@@ -83,7 +88,7 @@ export function applyDiscounts(list: Station[], d: DiscountState): Station[] {
 export function encodeDiscounts(d: DiscountState): string {
   if (!d.enabled) return "";
   return Object.entries(d.items)
-    .filter(([, i]) => i.on && i.cts > 0)
+    .filter(([, i]) => isLive(i))
     .map(([id, i]) => `${id}:${i.cts}`)
     .join(",");
 }
