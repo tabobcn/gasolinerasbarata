@@ -153,6 +153,21 @@ export const useFavorites = () => usePersisted(favoritesStore);
 export const usePlaces = () => usePersisted(placesStore);
 export const useAlerts = () => usePersisted(alertsStore);
 
+/** Gasolineras por las que ha pasado (para apuntar el repostaje sin buscar). Solo en su móvil. */
+export type Visit = { id: string; m: string; name: string; brand: string; at: number; how: "ir" | "cerca" | "ficha" };
+export const visitsStore = createPersisted<Visit[]>("gc.visits", []);
+export const useVisits = () => usePersisted(visitsStore);
+const HOW_RANK = { ficha: 0, ir: 1, cerca: 2 } as const;
+export function recordVisit(v: Omit<Visit, "at">) {
+  if (!v.id || !v.m) return;
+  visitsStore.set((list) => {
+    const prev = list.find((x) => x.id === v.id);
+    // "estuviste al lado" o "fuiste" pesan más que haber mirado la ficha (durante 12 horas)
+    const how = prev && Date.now() - prev.at < 12 * 3600e3 && HOW_RANK[prev.how] > HOW_RANK[v.how] ? prev.how : v.how;
+    return [{ ...v, how, at: Date.now() }, ...list.filter((x) => x.id !== v.id)].slice(0, 15);
+  });
+}
+
 export function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }

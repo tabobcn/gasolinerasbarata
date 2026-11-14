@@ -4,14 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BottomNav, BrandTile, Sheet } from "../ui";
 import { Icon } from "../Icon";
-import { refuelsStore, useRefuels, useSettings, type Refuel } from "@/lib/store";
+import { refuelsStore, useFavorites, useRefuels, useSettings, useVisits, type Refuel } from "@/lib/store";
 import { FUELS, fuelByKey, isFuelKey, type FuelKey } from "@/lib/fuels";
 import { fmtEuros, fmtKm, fmtPrice, madridDate } from "@/lib/format";
 import { useLocation } from "../LocationProvider";
 import { stationsUrl, useJSON } from "@/lib/useJSON";
-import type { Station, StationsResponse } from "@/lib/types";
+import type { Station, StationDetailResponse, StationsResponse } from "@/lib/types";
 import { useDiscounts } from "@/lib/discountStore";
-import { applyDiscounts } from "@/lib/discounts";
+import { applyDiscount, applyDiscounts } from "@/lib/discounts";
 
 const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const MONTHS_LONG = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -25,6 +25,18 @@ const dayText = (iso: string) => {
   const [y, m, d] = iso.split("-").map(Number);
   return `${d} ${MONTHS[m - 1]}${y !== new Date().getFullYear() ? ` ${y}` : ""}`;
 };
+
+const HOW: Record<string, string> = { ir: "Fuiste con el navegador", cerca: "Estuviste al lado", ficha: "Miraste su ficha" };
+/** "hoy 18:40", "ayer 9:05", "12 nov" */
+const whenText = (at: number) => {
+  const d = new Date(at);
+  const day = madridDate(d);
+  const hm = d.toLocaleTimeString("es-ES", { hour: "numeric", minute: "2-digit", timeZone: "Europe/Madrid" });
+  if (day === madridDate(new Date())) return `hoy ${hm}`;
+  if (day === madridDate(new Date(Date.now() - 864e5))) return `ayer ${hm}`;
+  return `${dayText(day)} ${hm}`;
+};
+type Tab = "recientes" | "favoritas" | "cerca";
 
 type Form = { id?: string; date: string; name: string; brand: string; stationId?: string; munId?: string; fuel: FuelKey; liters: string; price: string; total: string; km: string };
 
@@ -47,7 +59,23 @@ export function Refuels() {
       .filter((st) => !q || st.name.toLowerCase().includes(q) || st.brand.toLowerCase().includes(q))
       .sort((a, b) => (a.dist ?? 0) - (b.dist ?? 0));
   }, [near.data, disc, form?.name, form?.stationId]); // eslint-disable-line react-hooks/exhaustive-deps
-  const picked: Station | undefined = form?.stationId && near.data ? applyDiscounts(near.data.stations, disc).find((st) => st.id === form.stationId) : undefined;
+  const [visits] = useVisits();
+  const [favs] = useFavorites();
+  const [tab, setTab] = useState<Tab | null>(null);
+  const curTab: Tab = tab ?? (visits.length ? "recientes" : "cerca");
+  // Una reciente o favorita puede estar lejos: su precio de hoy se pide aparte
+  const det = useJSON<StationDetailResponse>(form && !form.id && form.stationId && form.munId ? `/api/stations/${encodeURIComponent(form.stationId)}?m=${encodeURIComponent(form.munId)}` : null);
+  const picked: Station | undefined = useMemo(() => {
+    if (!form?.stationId) return undefined;
+    const st = near.data?.stations.find((x) => x.id === form.stationId) ?? (det.data?.station.id === form.stationId ? det.data.station : undefined);
+    return st ? applyDiscount(st, disc) : undefined;
+  }, [form?.stationId, near.data, det.data, disc]);
+  useEffect(() => {
+    if (!picked || !form || form.id || form.price) return;
+    const p = picked.prices[form.fuel];
+    if (p != null) set({ price: dec(p, 3) }, "price");
+  }, [picked?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pickSaved = (v: { id: string; m: string; name: string; brand: string }) => set({ name: v.name, brand: v.brand, stationId: v.id, munId: v.m, price: "" });
 
   const pick = (st: Station) => {
     const p = st.prices[form!.fuel];
@@ -270,6 +298,42 @@ export function Refuels() {
               </label>
               {!form.id && !form.stationId && (
                 <div className="rf-near wide">
+                  <div role="tablist" aria-label="De dónde elegir la gasolinera" className="rf-tabs">
+                    {(["recientes", "favoritas", "cerca"] as Tab[]).map((t) => (
+                      <button key={t} type="button" role="tab" aria-selected={curTab === t} className={curTab === t ? "on" : undefined} onClick={() => setTab(t)}>
+                        {t === "recientes" ? "Recientes" : t === "favoritas" ? "Favoritas" : "Cerca"}
+                      </button>
+                    ))}
+                  </div>
+                  {curTab === "recientes" &&
+                    (visits.length ? (
+                      visits.slice(0, 6).map((v) => (
+                        <button key={v.id} type="button" className="rf-pick" onClick={() => pickSaved(v)}>
+                          <BrandTile brand={v.brand} size={32} />
+                          <span className="col-2 grow min0">
+                            <span className="b14 ellipsis">{v.name}</span>
+                            <span className="muted xs ellipsis">{HOW[v.how]}</span>
+                          </span>
+                          <strong className="b13 nowrap">{whenText(v.at)}</strong>
+                        </button>
+                      ))
+                    ) : (
+                      <span className="muted b12">Aquí saldrán las gasolineras a las que vayas con «Ir ahora», las que mires y las que tengas al lado con la app abierta.</span>
+                    ))}
+                  {curTab === "favoritas" &&
+                    (favs.length ? (
+                      favs.slice(0, 8).map((f) => (
+                        <button key={f.id} type="button" className="rf-pick" onClick={() => pickSaved(f)}>
+                          <BrandTile brand={f.brand} size={32} />
+                          <span className="b14 ellipsis grow min0">{f.name}</span>
+                          <Icon name="star" size={16} fill="currentColor" color="#C98A00" />
+                        </button>
+                      ))
+                    ) : (
+                      <span className="muted b12">Aún no tienes favoritas. Márcalas con la estrella en la ficha de la gasolinera.</span>
+                    ))}
+                  {curTab === "cerca" && (
+                    <>
                   {!loc && (
                     <button type="button" className="btn soft small" onClick={locate} disabled={status === "locating"}>
                       <Icon name="pin" size={16} /> {status === "locating" ? "Buscando…" : "Elegir entre las gasolineras cercanas"}
@@ -293,6 +357,8 @@ export function Refuels() {
                     <button type="button" className="link-btn" onClick={() => setMore(true)}>
                       Ver más cercanas
                     </button>
+                  )}
+                    </>
                   )}
                 </div>
               )}

@@ -15,7 +15,7 @@ import { InstallHint } from "../InstallHint";
 import { Welcome } from "../Welcome";
 import { BottomNav, BrandTile, EmptyState, FuelChips, ModeTabs, Sheet, Skeleton } from "../ui";
 import { Icon } from "../Icon";
-import { favoritesStore, modeStore, settingsStore, useFavorites, useRefuels, useSettings, useShows } from "@/lib/store";
+import { favoritesStore, modeStore, recordVisit, settingsStore, useFavorites, useRefuels, useSettings, useShows } from "@/lib/store";
 import { brandVisible } from "@/lib/brands";
 import { stationsUrl, useJSON } from "@/lib/useJSON";
 import type { StationsResponse } from "@/lib/types";
@@ -51,14 +51,21 @@ export function Home() {
     const visible = brandVisible(settings.hiddenBrands);
     const withFuel = applyDiscounts(data.stations, disc).filter((s) => s.prices[fuel] != null && visible(s.brand));
     const openOnes = withFuel.filter((s) => openStatus(s.hours, s.provId).open !== false);
-    const best = bestValue(openOnes.length ? openOnes : withFuel, fuel, settings.tank);
-    const avg = average(withFuel, fuel);
+    const avg = average(withFuel, fuel); // una sola media para la tarjeta y la lista
+    const best = bestValue(openOnes.length ? openOnes : withFuel, fuel, settings.tank, avg);
     const others = withFuel
       .filter((s) => s.id !== best?.station.id)
       .sort((a, b) => a.prices[fuel]! - b.prices[fuel]! || (a.dist ?? 0) - (b.dist ?? 0))
       .slice(0, 12);
     return { best, avg, others, count: withFuel.length };
   }, [data, fuel, settings.tank, disc, settings.hiddenBrands]);
+
+  // Con la app abierta al lado de una gasolinera, se apunta para ofrecerla luego en "Mis repostajes"
+  useEffect(() => {
+    if (loc?.source !== "gps" || !data) return;
+    const here = data.stations.filter((s) => s.dist != null && s.dist <= 0.1).sort((a, b) => a.dist! - b.dist!)[0];
+    if (here) recordVisit({ id: here.id, m: here.munId, name: here.name, brand: here.brand, how: "cerca" });
+  }, [data, loc?.source]);
 
   const place = loc?.label ?? data?.stations[0]?.mun ?? (loc ? "Tu zona" : "¿Dónde estás?");
   const best = view?.best;
@@ -213,11 +220,10 @@ export function Home() {
               </span>
               {best.savings >= 0.1 ? (
                 <span className="muted xs block">
-                  Ahorras <strong className="green">{fmtEuros(best.savings)} €</strong> frente al precio medio de las otras gasolineras de tu zona ({fmtPrice(best.avg)} €/l), ya
-                  descontado lo que gastas en ir y volver
+                  Ahorras <strong className="green">{fmtEuros(best.savings)} €</strong> frente al precio medio de tu zona ({fmtPrice(best.avg)} €/l)
                 </span>
               ) : (
-                <span className="muted xs block">La mejor relación precio-distancia de tu zona</span>
+                <span className="muted xs block">La más barata de tu zona</span>
               )}
             </div>
             <div className="row-10">
@@ -261,7 +267,7 @@ export function Home() {
             </div>
             <div className="stack-8">
               {view.others.map((s) => (
-                <StationRow key={s.id} s={s} fuel={fuel} avg={view.avg} />
+                <StationRow key={s.id} s={s} fuel={fuel} tank={settings.tank} bestPrice={bestPrice} />
               ))}
             </div>
             <Link href="/mapa" className="btn soft">

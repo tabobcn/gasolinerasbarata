@@ -2060,3 +2060,11 @@ img.side-logo { background: none; border-radius: 0; }
 }
 .set-link + .set-link { border-top: 1px solid var(--line-2); }
 .opt.hide.on { background: var(--line); color: var(--muted); text-decoration: line-through; }
+
+/* ===== Tanda 2: fila con diferencia y pestañas al apuntar un repostaje ===== */
+.row-6 { display: flex; gap: 6px; align-items: center; }
+.tag.plus { background: var(--line); color: var(--ink-2); }
+.tag.fit { align-self: flex-start; margin-top: 2px; }
+.rf-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 12px; background: var(--line); }
+.rf-tabs button { all: unset; cursor: pointer; text-align: center; height: 34px; line-height: 34px; border-radius: 9px; font-size: 13px; font-weight: 800; color: var(--ink-2); }
+.rf-tabs button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(14, 23, 38, 0.12); }

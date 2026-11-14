@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useJSON } from "@/lib/useJSON";
 import type { HistoryResponse, StationDetailResponse } from "@/lib/types";
 import { FUELS, fuelByKey } from "@/lib/fuels";
 import { fmtEuros, fmtKm, fmtPrice, signedCents, etaMin, timeAgo } from "@/lib/format";
 import { openStatus, prettySchedule } from "@/lib/hours";
 import { haversineKm } from "@/lib/geo";
-import { favoritesStore, useFavorites, useSettings } from "@/lib/store";
+import { favoritesStore, recordVisit, useFavorites, useSettings } from "@/lib/store";
 import { useLocation } from "../LocationProvider";
 import { useNavigate } from "../NavigateProvider";
 import { BrandTile, EmptyState, Skeleton } from "../ui";
@@ -31,6 +31,9 @@ export function StationDetail({ id, m }: { id: string; m: string | null }) {
   const fuel = settings.fuel;
   const { data, error, loading, reload } = useJSON<StationDetailResponse>(m ? `/api/stations/${encodeURIComponent(id)}?m=${encodeURIComponent(m)}` : null);
   const st = data?.station;
+  useEffect(() => {
+    if (st) recordVisit({ id: st.id, m: st.munId, name: st.name, brand: st.brand, how: "ficha" });
+  }, [st?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [discState] = useDiscounts();
   const myDisc = st ? discountFor(st.brand, discState) : null;
   const brandK = st ? knownBrand(st.brand) : null;

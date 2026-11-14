@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
-import { settingsStore, useSettings, type NavApp } from "@/lib/store";
+import { recordVisit, settingsStore, useSettings, type NavApp } from "@/lib/store";
 import { fmtKm, etaMin } from "@/lib/format";
 import type { Station } from "@/lib/types";
 import { BrandTile, Sheet } from "./ui";
@@ -34,6 +34,8 @@ export function NavigateProvider({ children }: { children: React.ReactNode }) {
   const [remember, setRemember] = useState(true);
 
   const goTo = useCallback<Ctx["goTo"]>((s, opts) => {
+    const st = s as Partial<Station>; // las gasolineras traen id y municipio; los cargadores no
+    if (st.id && st.munId) recordVisit({ id: st.id, m: st.munId, name: s.name, brand: s.brand, how: "ir" });
     const saved = settingsStore.get().navApp;
     if (saved && !opts?.forceAsk) {
       window.open(navUrl(saved, s), "_blank", "noopener");
