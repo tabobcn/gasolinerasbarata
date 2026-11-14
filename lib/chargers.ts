@@ -241,7 +241,9 @@ export type ConnGroup = {
   compatible: boolean;
   price: number | null; // €/kWh con IVA
   doubtful: boolean; // precio a confirmar (demasiado bajo o sin actualizar en más de un año): se enseña, pero no se pone el primero
-  why: "low" | "old" | null; // por qué hay que confirmarlo
+  why: "low" | "old" | "ref" | null; // por qué hay que confirmarlo
+  ref: RefPrice | null; // tarifa oficial del operador para este enchufe, si la conocemos
+  declared: number | null; // lo que el operador declaró a REVE (con IVA), cuando enseñamos su tarifa oficial en su lugar
   vatKnown: boolean; // el operador indica el IVA (si no, no sabemos si el precio lo lleva)
   fill: FillEstimate;
 };
@@ -257,16 +259,42 @@ export const isDoubtful = (p: number | null) => p != null && p < DOUBTFUL_KWH;
 export const STALE_MS = 365 * 86_400_000;
 export const isStale = (c: Conn, now = Date.now()) => !!c.tu && now - Date.parse(c.tu) > STALE_MS;
 
+/**
+ * Tabla manual de precios de referencia por operador. VACÍA a propósito: desde el 14-11-2026 el precio de día
+ * por potencia lo calcula la base de datos a partir de la tarifa que cada operador declara a REVE
+ * (función ev_energy_price, migración 2026-11-14_precio_de_dia_por_potencia.sql), así que se actualiza solo.
+ * Solo se rellenaría si un operador declarase mal su tarifa y hubiera que enseñar otra con su fuente.
+ * [día, noche] en €/kWh con IVA. ac: corriente alterna · dc: rápida de menos de 100 kW · hpc: 100 kW o más.
+ */
+const REF_TARIFFS: Record<string, { name: string; url: string; since: string; ac: [number, number]; dc: [number, number]; hpc: [number, number] }> = {};
+export type RefPrice = { name: string; url: string; since: string; day: number; night: number };
+export function refPrice(party: string | null, c: Conn): RefPrice | null {
+  const t = party && Object.hasOwn(REF_TARIFFS, party) ? REF_TARIFFS[party] : null;
+  if (!t) return null;
+  const [day, night] = !isDC(c) ? t.ac : (c.kw ?? 50) >= 100 ? t.hpc : t.dc;
+  return { name: t.name, url: t.url, since: t.since, day, night };
+}
+/** El precio declarado queda claramente por debajo de la tarifa oficial de día */
+const belowRef = (p: number | null, ref: RefPrice | null) => p != null && !!ref && p < ref.day - 0.03;
+const eur2 = (n: number) => n.toFixed(2).replace(".", ",");
+
+/** Explicación cuando se enseña la tarifa oficial del operador en vez del precio que declaró a REVE */
+export function refText(g: Pick<ConnGroup, "why" | "ref" | "declared">): string | null {
+  if (g.why !== "ref" || !g.ref) return null;
+  return `Precio de día (de 7:00 a 23:00) de la tarifa que ${g.ref.name} tiene declarada para esta potencia. De noche baja a ${eur2(g.ref.night)} €/kWh. Con suscripción o en algún sitio concreto puede cambiar: confírmalo en su app.`;
+}
+
 /** Etiqueta corta junto al precio: qué sabemos de él */
-export function priceNote(g: Pick<ConnGroup, "price" | "why" | "vatKnown" | "conn">): string {
+export function priceNote(g: Pick<ConnGroup, "price" | "why" | "vatKnown" | "conn"> & { ref?: RefPrice | null }): string {
   if (g.price == null) return "sin precio";
   if (g.why === "low") return "a confirmar";
+  if (g.why === "ref") return "precio de día";
   if (g.why === "old") return `precio de ${new Date(g.conn.tu!).getFullYear()}`;
   return g.vatKnown ? "IVA incl." : "IVA no indicado";
 }
 
 /** Aviso largo cuando el precio hay que confirmarlo */
-export function doubtText(g: Pick<ConnGroup, "why" | "conn">): string {
+export function doubtText(g: Pick<ConnGroup, "why" | "conn"> & { ref?: RefPrice | null }): string {
   return g.why === "old"
     ? `El operador no actualiza esta tarifa desde ${new Date(g.conn.tu!).getFullYear()}: confirma el precio en su app antes de ir.`
     : "Precio a confirmar en la app del operador: es demasiado bajo para ser real.";
@@ -276,7 +304,12 @@ export function doubtText(g: Pick<ConnGroup, "why" | "conn">): string {
 export function groups(ch: Charger, car: Car): ConnGroup[] {
   const map = new Map<string, ConnGroup>();
   for (const e of ch.evses) {
-    for (const c of e.c) {
+    for (const raw of e.c) {
+      // Si el operador declara a REVE menos de lo que cobra según su tarifa oficial, se usa la oficial de día
+      // (el precio más alto: si luego es más barato, mejor). El dato de REVE se conserva en `declared`.
+      const ref = refPrice(ch.party, raw);
+      const useRef = belowRef(priceKwh(raw), ref);
+      const c: Conn = useRef ? { ...raw, e: ref!.day / vatFactor(raw) } : raw;
       const kind = plugKind(c.s);
       const kw = c.kw ?? e.kw ?? 0;
       const key = `${kind}|${kw}|${hasPrice(c) ? `${c.e ?? ""}|${c.t ?? ""}|${c.f ?? ""}` : "sin-precio"}`;
@@ -294,8 +327,10 @@ export function groups(ch: Charger, car: Car): ConnGroup[] {
         evses: [e],
         compatible: compatible(c, car),
         price: priceKwh(c),
-        doubtful: isDoubtful(priceKwh(c)) || (hasPrice(c) && isStale(c)),
-        why: isDoubtful(priceKwh(c)) ? "low" : hasPrice(c) && isStale(c) ? "old" : null,
+        doubtful: !useRef && (isDoubtful(priceKwh(c)) || (hasPrice(c) && isStale(c))),
+        why: useRef ? "ref" : isDoubtful(priceKwh(c)) ? "low" : hasPrice(c) && isStale(c) ? "old" : null,
+        ref,
+        declared: useRef ? priceKwh(raw) : null,
         vatKnown: vatPct(c.v) != null,
         fill: fillEstimate(c, car),
       });

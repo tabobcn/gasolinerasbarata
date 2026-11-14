@@ -35,6 +35,7 @@ import {
   hasPrice,
   vatPct,
   doubtText,
+  refText,
   priceNote,
   tariffLines,
   zeroOnly,
@@ -214,6 +215,8 @@ export function ChargerDetail({ id, group }: { id: string; group?: string | null
               </span>
             </span>
             {sel.doubtful && <span className="b12 soft-text">{doubtText(sel)}</span>}
+            {sel.why === "ref" && <span className="b12 soft-text">{refText(sel)}</span>}
+            {!sel.doubtful && sel.why !== "ref" && sel.price != null && <span className="b12 soft-text">Precio declarado por el operador a Red Eléctrica, sin suscripción. Si cambia según la hora, es el más alto (el de día); abajo tienes todos los tramos. Confírmalo en su app antes de cargar.</span>}
             {sel.kw > sel.fill.kw + 0.05 && (
               <span className="b12 soft-text">
                 El cargador da {kw(sel.kw)}, pero tu coche carga como máximo a {kw(sel.fill.kw)}

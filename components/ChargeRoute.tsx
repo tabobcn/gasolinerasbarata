@@ -10,7 +10,7 @@ import { RouteMap } from "./RouteMap";
 import { useSettings } from "@/lib/store";
 import { r3, useJSON } from "@/lib/useJSON";
 import { fmtMinutes } from "@/lib/format";
-import { availText, carFrom, chargerHref, chargerName, datesText, doubtText, priceNote, PLUG_LABEL, routeGroup, summarize, type ChargerRouteResponse } from "@/lib/chargers";
+import { availText, carFrom, chargerHref, chargerName, datesText, doubtText, priceNote, refText, PLUG_LABEL, routeGroup, summarize, type ChargerRouteResponse } from "@/lib/chargers";
 
 type Pt = { lat: number; lon: number; label: string };
 
@@ -134,6 +134,8 @@ export function ChargeRoute({ origin, to }: { origin: Pt; to: Pt }) {
             </div>
           )}
 
+          <p className="muted b12 ev-warn">Precios declarados por cada operador a Red Eléctrica (REVE), de día y sin suscripción. Confírmalos en la app del operador antes de cargar.</p>
+
           <div className="row-between baseline">
             <h2 className="h2">Dónde cargar</h2>
             <span className="muted b13">Por kilómetro</span>
@@ -177,6 +179,7 @@ export function ChargeRoute({ origin, to }: { origin: Pt; to: Pt }) {
                 <span className={`b12 tone-${availText(best.s.avail).tone}`}>{availText(best.s.avail).text}</span>
               </div>
               {best.g.doubtful && <span className="muted b12">{doubtText(best.g)}</span>}
+              {best.g.why === "ref" && <span className="muted b12">{refText(best.g)}</span>}
               {!best.g.doubtful && !best.g.vatKnown && best.g.price != null && <span className="muted b12">El operador no indica si el precio lleva IVA.</span>}
               <div className="saving-box">
                 Cargar {target(best.g.dc)}:{" "}

@@ -2106,3 +2106,5 @@ img.side-logo { background: none; border-radius: 0; }
 .route-hint { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 4; white-space: nowrap; padding: 6px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.94); box-shadow: 0 2px 8px rgba(14, 23, 38, 0.15); font-size: 12px; font-weight: 700; color: var(--ink-2); pointer-events: none; }
 .icon-btn.ghost.small { width: 32px; height: 32px; }
 .route-map .maplibregl-ctrl-top-right { top: 0; }
+
+.ev-warn { margin: 0; line-height: 1.4; }

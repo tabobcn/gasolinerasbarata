@@ -16,7 +16,7 @@ import { r3, stationsUrl, useJSON } from "@/lib/useJSON";
 import type { StationsResponse } from "@/lib/types";
 import { average, CONSUMPTION_L_100KM } from "@/lib/savings";
 import { fmtKm, fmtMinutes } from "@/lib/format";
-import { doubtText,
+import { doubtText, refText,
   carFrom,
   chargerHref,
   chargerName,
@@ -107,6 +107,10 @@ export function Charge() {
         </div>
 
         <ModeTabs mode="charge" />
+
+        <p className="muted b12 ev-warn">
+          Los precios son los que cada operador declara a Red Eléctrica (REVE). Si un cargador cobra distinto según la hora, enseñamos el precio más alto (el de día) y sin suscripción. Confírmalo en la app del operador antes de cargar.
+        </p>
 
         {car.electric ? (
           <Link href="/mi-coche" className="note blue link">
@@ -235,6 +239,7 @@ export function Charge() {
               <span className="b15 muted">Precio no disponible en REVE</span>
             )}
             {hg.doubtful && <span className="muted b12">{doubtText(hg)}</span>}
+            {hg.why === "ref" && <span className="muted b12">{refText(hg)}</span>}
             {!hg.doubtful && !hg.vatKnown && hg.price != null && <span className="muted b12">El operador no indica si el precio lleva IVA.</span>}
             <div className="saving-box">
               Llenar del 20 al 100 %:{" "}
