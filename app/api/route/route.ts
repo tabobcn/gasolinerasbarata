@@ -37,8 +37,9 @@ export async function GET(req: NextRequest) {
       .filter((x) => x.dist <= CORRIDOR_KM);
 
     // Marcas que el usuario ha ocultado en Ajustes (?h=REPSOL,BP)
-    const hidden = (sp.get("h") ?? "").split(",").map((k) => k.trim().toUpperCase().slice(0, 30)).filter(Boolean).slice(0, 40);
-    const visible = brandVisible(hidden);
+    // …o las únicas que quiere ver (?o=REPSOL)
+    const keys = (v: string | null) => (v ?? "").split(",").map((k) => k.trim().toUpperCase().slice(0, 30)).filter(Boolean).slice(0, 40);
+    const visible = brandVisible(keys(sp.get("h")), keys(sp.get("o")));
     const withFuel = corridor.filter((x) => x.s.prices[fuel] != null && visible(x.s.brand));
     const avg = withFuel.length ? withFuel.reduce((a, x) => a + x.s.prices[fuel]!, 0) / withFuel.length : null;
 

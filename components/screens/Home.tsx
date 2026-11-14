@@ -48,7 +48,7 @@ export function Home() {
 
   const view = useMemo(() => {
     if (!data) return null;
-    const visible = brandVisible(settings.hiddenBrands);
+    const visible = brandVisible(settings.hiddenBrands, settings.onlyBrands);
     const withFuel = applyDiscounts(data.stations, disc).filter((s) => s.prices[fuel] != null && visible(s.brand));
     const openOnes = withFuel.filter((s) => openStatus(s.hours, s.provId).open !== false);
     const avg = average(withFuel, fuel); // una sola media para la tarjeta y la lista
@@ -58,7 +58,7 @@ export function Home() {
       .sort((a, b) => a.prices[fuel]! - b.prices[fuel]! || (a.dist ?? 0) - (b.dist ?? 0))
       .slice(0, 12);
     return { best, avg, others, count: withFuel.length };
-  }, [data, fuel, settings.tank, disc, settings.hiddenBrands]);
+  }, [data, fuel, settings.tank, disc, settings.hiddenBrands, settings.onlyBrands]);
 
   // Con la app abierta al lado de una gasolinera, se apunta para ofrecerla luego en "Mis repostajes"
   useEffect(() => {

@@ -60,14 +60,29 @@ export function knownBrandList(): { key: string; name: string }[] {
   return out.sort((a, b) => a.name.localeCompare(b.name, "es"));
 }
 
-/** Devuelve la función que dice si una marca se enseña, según las que el usuario ha ocultado en Ajustes */
-export function brandVisible(hidden: string[] | undefined): (brand: string) => boolean {
-  if (!hidden?.length) return () => true;
-  const names = new Set(hidden.map((k) => KNOWN[k]?.name ?? k));
-  return (brand) => {
-    const k = knownBrand(brand);
-    return !k || !names.has(KNOWN[k].name ?? k);
+/** Clave para "el resto": low cost e independientes que no están en la lista de marcas conocidas */
+export const OTHER_BRANDS = "OTRAS";
+
+/**
+ * Devuelve la función que dice si una marca se enseña, según lo elegido en Ajustes:
+ * - `only` con alguna marca: se ven SOLO esas (p. ej. solo Repsol).
+ * - si no, se ocultan las de `hidden`.
+ * En las dos listas, OTHER_BRANDS representa a todas las marcas que no conocemos.
+ */
+export function brandVisible(hidden: string[] | undefined, only?: string[]): (brand: string) => boolean {
+  const namesOf = (keys: string[]) => new Set(keys.filter((k) => k !== OTHER_BRANDS).map((k) => KNOWN[k]?.name ?? k));
+  const test = (keys: string[]) => {
+    const names = namesOf(keys);
+    const others = keys.includes(OTHER_BRANDS);
+    return (brand: string) => {
+      const k = knownBrand(brand);
+      return k ? names.has(KNOWN[k].name ?? k) : others;
+    };
   };
+  if (only?.length) return test(only);
+  if (!hidden?.length) return () => true;
+  const isHidden = test(hidden);
+  return (brand) => !isHidden(brand);
 }
 
 const PALETTE = ["#334155", "#3F4E6B", "#4B5563", "#2E5E4E", "#5B4636", "#4A3F6B", "#3B5B6B"];

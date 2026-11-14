@@ -107,10 +107,10 @@ export function MapScreen({ embedded }: { embedded?: "fuel" | "charge" } = {}) {
   const [disc, setDisc] = useDiscounts();
   const stations = useMemo(() => {
     if (mode !== "fuel") return [];
-    const visible = brandVisible(settings.hiddenBrands);
+    const visible = brandVisible(settings.hiddenBrands, settings.onlyBrands);
     const list = applyDiscounts(data?.stations ?? [], disc).filter((s) => s.prices[fuel] != null && visible(s.brand));
     return openOnly ? list.filter((s) => openStatus(s.hours, s.provId).open !== false) : list;
-  }, [data, fuel, openOnly, disc, mode, settings.hiddenBrands]);
+  }, [data, fuel, openOnly, disc, mode, settings.hiddenBrands, settings.onlyBrands]);
   const avg = useMemo(() => average(stations, fuel), [stations, fuel]);
   const cheapestId = useMemo(() => [...stations].sort((a, b) => a.prices[fuel]! - b.prices[fuel]!)[0]?.id, [stations, fuel]);
   const selected: Station | undefined = stations.find((s) => s.id === sel) ?? stations.find((s) => s.id === cheapestId);

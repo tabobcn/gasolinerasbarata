@@ -84,6 +84,7 @@ export type Settings = {
   radius: number; // km
   configured?: boolean; // el usuario ya ha guardado su coche (bienvenida o "Mi coche")
   hiddenBrands?: string[]; // marcas donde no quiere repostar (claves de lib/brands)
+  onlyBrands?: string[]; // si tiene alguna, solo se enseñan estas marcas (manda sobre hiddenBrands)
   favAlerts?: boolean; // avisar cuando baje cualquier favorita, sin crear alertas una a una
   showAll?: boolean; // ver gasolineras y cargadores aunque su coche no use una de las dos cosas
 };

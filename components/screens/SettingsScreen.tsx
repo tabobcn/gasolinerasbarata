@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Icon, type IconName } from "../Icon";
 import { BottomNav } from "../ui";
 import { CAR_TYPES } from "../CarForm";
-import { knownBrandList } from "@/lib/brands";
+import { knownBrandList, OTHER_BRANDS } from "@/lib/brands";
 import { useSettings, type NavApp } from "@/lib/store";
 
 const RADII = [2, 5, 10, 20];
@@ -20,13 +21,24 @@ const LINKS: { href: string; label: string; icon: IconName }[] = [
   { href: "/instalar", label: "Instalar la app y avisos", icon: "bell" },
   { href: "/privacidad", label: "Fuentes y privacidad", icon: "info" },
 ];
-const BRANDS = knownBrandList();
+const BRANDS = [...knownBrandList(), { key: OTHER_BRANDS, name: "Otras (low cost e independientes)" }];
 
 export function SettingsScreen() {
   const router = useRouter();
   const [s, setS] = useSettings();
   const hidden = s.hiddenBrands ?? [];
-  const toggleBrand = (key: string) => setS((p) => ({ ...p, hiddenBrands: hidden.includes(key) ? hidden.filter((k) => k !== key) : [...hidden, key] }));
+  const only = s.onlyBrands ?? [];
+  // Dos formas de elegir: quitar las que no quieres, o quedarte solo con las que quieres
+  const [picked, setOnlyMode] = useState<boolean | null>(null);
+  const onlyMode = picked ?? only.length > 0; // si no ha tocado nada, manda lo que tenga guardado
+  const list = onlyMode ? only : hidden;
+  const field = onlyMode ? "onlyBrands" : "hiddenBrands";
+  const toggleBrand = (key: string) => setS((p) => ({ ...p, [field]: list.includes(key) ? list.filter((k) => k !== key) : [...list, key] }));
+  const setMode = (m: boolean) => {
+    setOnlyMode(m);
+    // al cambiar de forma se empieza de cero, para que no se mezclen las dos listas
+    setS((p) => ({ ...p, hiddenBrands: [], onlyBrands: [] }));
+  };
   const typeLabel = CAR_TYPES.find((t) => t.id === s.carType)?.label ?? "";
   // Un híbrido enchufable ya lo ve todo; a los demás se les deja ver también la otra parte
   const canShowAll = !!s.configured && s.carType !== "phev";
@@ -88,19 +100,33 @@ export function SettingsScreen() {
         </section>
 
         <section className="card stack-10">
-          <h2 className="eyebrow">MARCAS QUE NO QUIERES VER</h2>
+          <h2 className="eyebrow">MARCAS</h2>
+          <div className="grid-2">
+            <button type="button" aria-pressed={!onlyMode} className={`opt small${!onlyMode ? " on" : ""}`} onClick={() => onlyMode && setMode(false)}>
+              Ocultar algunas
+            </button>
+            <button type="button" aria-pressed={onlyMode} className={`opt small${onlyMode ? " on" : ""}`} onClick={() => !onlyMode && setMode(true)}>
+              Ver solo las que elija
+            </button>
+          </div>
           <span className="muted b13">
-            {hidden.length ? `Ocultas: ${hidden.length}. No salen en la lista, el mapa ni la ruta.` : "Toca las marcas donde no repostas y dejarán de salir en la lista, el mapa y la ruta."}
+            {onlyMode
+              ? only.length
+                ? `Solo ves ${only.length === 1 ? "esta marca" : `estas ${only.length} marcas`} en la lista, el mapa y la ruta.`
+                : "Toca las marcas donde repostas (por ejemplo, solo Repsol). Mientras no elijas ninguna, se ven todas."
+              : hidden.length
+                ? `Ocultas: ${hidden.length}. No salen en la lista, el mapa ni la ruta.`
+                : "Toca las marcas donde no repostas y dejarán de salir en la lista, el mapa y la ruta."}
           </span>
           <div className="chips wrap">
             {BRANDS.map((b) => (
-              <button key={b.key} type="button" aria-pressed={hidden.includes(b.key)} className={`opt hide${hidden.includes(b.key) ? " on" : ""}`} onClick={() => toggleBrand(b.key)}>
+              <button key={b.key} type="button" aria-pressed={list.includes(b.key)} className={`opt${onlyMode ? " pick" : " hide"}${list.includes(b.key) ? " on" : ""}`} onClick={() => toggleBrand(b.key)}>
                 {b.name}
               </button>
             ))}
           </div>
-          {hidden.length > 0 && (
-            <button type="button" className="btn soft" onClick={() => setS((p) => ({ ...p, hiddenBrands: [] }))}>
+          {list.length > 0 && (
+            <button type="button" className="btn soft" onClick={() => setS((p) => ({ ...p, hiddenBrands: [], onlyBrands: [] }))}>
               Volver a ver todas
             </button>
           )}

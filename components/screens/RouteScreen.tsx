@@ -36,7 +36,7 @@ export function RouteScreen() {
   const dParam = encodeDiscounts(discState);
   const url =
     origin && to && mode === "fuel"
-      ? `/api/route?from=${r3(origin.lat)},${r3(origin.lon)}&to=${r3(to.lat)},${r3(to.lon)}&fuel=${fuel}&tank=${settings.tank}${dParam ? `&d=${encodeURIComponent(dParam)}` : ""}${settings.hiddenBrands?.length ? `&h=${encodeURIComponent(settings.hiddenBrands.join(","))}` : ""}`
+      ? `/api/route?from=${r3(origin.lat)},${r3(origin.lon)}&to=${r3(to.lat)},${r3(to.lon)}&fuel=${fuel}&tank=${settings.tank}${dParam ? `&d=${encodeURIComponent(dParam)}` : ""}${settings.onlyBrands?.length ? `&o=${encodeURIComponent(settings.onlyBrands.join(","))}` : settings.hiddenBrands?.length ? `&h=${encodeURIComponent(settings.hiddenBrands.join(","))}` : ""}`
       : null;
   const { data, error, loading } = useJSON<RouteResponse>(url);
 
