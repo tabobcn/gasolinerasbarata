@@ -10,7 +10,7 @@ import { RouteMap } from "./RouteMap";
 import { useSettings } from "@/lib/store";
 import { r3, useJSON } from "@/lib/useJSON";
 import { fmtMinutes } from "@/lib/format";
-import { availText, carFrom, chargerHref, chargerName, datesText, doubtText, priceNote, refText, PLUG_LABEL, routeGroup, summarize, type ChargerRouteResponse } from "@/lib/chargers";
+import { availText, carFrom, chargerHref, chargerName, datesText, doubtText, priceNote, refText, vatText, PLUG_LABEL, routeGroup, summarize, type ChargerRouteResponse } from "@/lib/chargers";
 
 type Pt = { lat: number; lon: number; label: string };
 
@@ -180,7 +180,7 @@ export function ChargeRoute({ origin, to }: { origin: Pt; to: Pt }) {
               </div>
               {best.g.doubtful && <span className="muted b12">{doubtText(best.g)}</span>}
               {best.g.why === "ref" && <span className="muted b12">{refText(best.g)}</span>}
-              {!best.g.doubtful && !best.g.vatKnown && best.g.price != null && <span className="muted b12">El operador no indica si el precio lleva IVA.</span>}
+              {!best.g.doubtful && !best.g.vatKnown && best.g.price != null && <span className="muted b12">{vatText(best.g)}</span>}
               <div className="saving-box">
                 Cargar {target(best.g.dc)}:{" "}
                 <strong>
@@ -226,7 +226,7 @@ export function ChargeRoute({ origin, to }: { origin: Pt; to: Pt }) {
                     <span className="col-2 end">
                       <span className={`price-sm${g.price != null ? " blue-ink" : " muted"}`}>{g.price != null ? `${euro(g.price)} €` : "—"}</span>
                       <span className="muted b12 nowrap">
-                        {g.doubtful || !g.vatKnown ? `${priceNote(g)} · ` : g.trip.cost != null ? `${euro(g.trip.cost)} € · ` : ""}
+                        {g.doubtful || (!g.vatKnown && !g.conn.va) ? `${priceNote(g)} · ` : g.trip.cost != null ? `${euro(g.trip.cost)} € · ` : ""}
                         {fmtMinutes(g.trip.minutes)}
                       </span>
                     </span>
@@ -238,7 +238,7 @@ export function ChargeRoute({ origin, to }: { origin: Pt; to: Pt }) {
 
           <p className="source">
             Fuente: Red Eléctrica de España (REVE). {datesText(data.updated, data.prices)} Ruta calculada con OSRM (OpenStreetMap). Coste y tiempo
-            aproximados de cargar del 20 al 80 % en carga rápida y del 20 al 100 % en carga normal, con precios con IVA cuando el operador lo indica. En cada tramo se eligen las paradas de menor coste, contando el desvío.
+            aproximados de cargar del 20 al 80 % en carga rápida y del 20 al 100 % en carga normal, con precios con IVA (si el operador no lo indica, se suma el 21 %). En cada tramo se eligen las paradas de menor coste, contando el desvío.
           </p>
         </>
       )}

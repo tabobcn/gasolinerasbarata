@@ -57,7 +57,7 @@ export function ChargerRow({ s, car }: { s: Summary; car: Car }) {
       </span>
       <span className="col-2 end">
         <span className={`price-sm${price != null ? " blue-ink" : " muted"}`}>{price != null ? `${euro(price)} €` : "—"}</span>
-        <span className="muted b12 nowrap">{pg && (doubtful || !pg.vatKnown) ? priceNote(pg) : cost != null ? `${euro(cost)} € lleno` : price != null ? "kWh · IVA incl." : "sin precio"}</span>
+        <span className="muted b12 nowrap">{pg && (doubtful || (!pg.vatKnown && !pg.conn.va)) ? priceNote(pg) : cost != null ? `${euro(cost)} € lleno` : price != null ? "kWh · IVA incl." : "sin precio"}</span>
       </span>
     </Link>
   );

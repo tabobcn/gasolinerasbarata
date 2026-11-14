@@ -16,6 +16,7 @@ export type Conn = {
   kw: number | null;
   e: number | null; // €/kWh sin IVA
   v: number | null; // % IVA
+  va?: boolean; // el operador no indicó el IVA y se ha supuesto el habitual (ver assumedVat)
   t: number | null; // €/hora sin IVA
   f: number | null; // € por recarga sin IVA
   el?: TariffElement[] | null;
@@ -284,13 +285,32 @@ export function refText(g: Pick<ConnGroup, "why" | "ref" | "declared">): string 
   return `Precio de día (de 7:00 a 23:00) de la tarifa que ${g.ref.name} tiene declarada para esta potencia. De noche baja a ${eur2(g.ref.night)} €/kWh. Con suscripción o en algún sitio concreto puede cambiar: confírmalo en su app.`;
 }
 
+/**
+ * Impuesto que se supone cuando el operador no lo indica. En REVE (formato OCPI) el precio va SIN impuestos y el
+ * campo del IVA es opcional; muchos operadores (Repsol entre ellos) no lo rellenan, y el precio que cobran en su app
+ * es el declarado más el 21 %. Enseñar el precio sin impuestos hacía que saliera más barato de lo que es.
+ * Canarias: IGIC del 3 %. Ceuta y Melilla: no se supone nada.
+ */
+export function assumedVat(ch: Pick<Charger, "lat" | "lon">): number {
+  if (ch.lat < 30) return 3; // Canarias
+  if ((ch.lat < 36.0 && ch.lon > -5.5 && ch.lon < -5.2) || (ch.lat < 35.4 && ch.lon > -3.1 && ch.lon < -2.8)) return 0; // Ceuta, Melilla
+  return 21;
+}
+
+/** Frase cuando el operador no indicó el IVA */
+export function vatText(g: Pick<ConnGroup, "conn">): string {
+  return g.conn.va
+    ? `El operador no indica los impuestos: hemos sumado el ${g.conn.v} %, que es lo que se cobra de más en su app. Confírmalo antes de cargar.`
+    : "El operador no indica si el precio lleva impuestos.";
+}
+
 /** Etiqueta corta junto al precio: qué sabemos de él */
 export function priceNote(g: Pick<ConnGroup, "price" | "why" | "vatKnown" | "conn"> & { ref?: RefPrice | null }): string {
   if (g.price == null) return "sin precio";
   if (g.why === "low") return "a confirmar";
   if (g.why === "ref") return "precio de día";
   if (g.why === "old") return `precio de ${new Date(g.conn.tu!).getFullYear()}`;
-  return g.vatKnown ? "IVA incl." : "IVA no indicado";
+  return g.vatKnown ? "IVA incl." : g.conn.va ? "IVA incl. (estimado)" : "IVA no indicado";
 }
 
 /** Aviso largo cuando el precio hay que confirmarlo */
@@ -304,7 +324,9 @@ export function doubtText(g: Pick<ConnGroup, "why" | "conn"> & { ref?: RefPrice 
 export function groups(ch: Charger, car: Car): ConnGroup[] {
   const map = new Map<string, ConnGroup>();
   for (const e of ch.evses) {
-    for (const raw of e.c) {
+    for (const raw0 of e.c) {
+      // Sin IVA declarado: se suma el habitual, para no enseñar un precio más bajo del que se paga
+      const raw: Conn = vatPct(raw0.v) == null && hasPrice(raw0) && assumedVat(ch) > 0 ? { ...raw0, v: assumedVat(ch), va: true } : raw0;
       // Si el operador declara a REVE menos de lo que cobra según su tarifa oficial, se usa la oficial de día
       // (el precio más alto: si luego es más barato, mejor). El dato de REVE se conserva en `declared`.
       const ref = refPrice(ch.party, raw);
@@ -331,7 +353,7 @@ export function groups(ch: Charger, car: Car): ConnGroup[] {
         why: useRef ? "ref" : isDoubtful(priceKwh(c)) ? "low" : hasPrice(c) && isStale(c) ? "old" : null,
         ref,
         declared: useRef ? priceKwh(raw) : null,
-        vatKnown: vatPct(c.v) != null,
+        vatKnown: vatPct(c.v) != null && !c.va,
         fill: fillEstimate(c, car),
       });
     }
@@ -692,7 +714,7 @@ export function tariffLines(c: Conn): { label: string; value: string; note: stri
       if (!Number.isFinite(base)) continue;
       // Los componentes a 0 € no aportan nada y confunden
       if (base === 0) continue;
-      const rawVat = pc.vat != null && pc.vat !== "" ? Number(String(pc.vat).replace(",", ".")) : 0;
+      const rawVat = pc.vat != null && pc.vat !== "" ? Number(String(pc.vat).replace(",", ".")) : (vatPct(c.v) ?? 0);
       const vat = vatPct(Number.isFinite(rawVat) ? rawVat : 0) ?? 0;
       const p = base * (1 + vat / 100);
       if (resv) {

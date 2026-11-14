@@ -16,7 +16,7 @@ import { r3, stationsUrl, useJSON } from "@/lib/useJSON";
 import type { StationsResponse } from "@/lib/types";
 import { average, CONSUMPTION_L_100KM } from "@/lib/savings";
 import { fmtKm, fmtMinutes } from "@/lib/format";
-import { doubtText, refText,
+import { doubtText, refText, vatText,
   carFrom,
   chargerHref,
   chargerName,
@@ -240,7 +240,7 @@ export function Charge() {
             )}
             {hg.doubtful && <span className="muted b12">{doubtText(hg)}</span>}
             {hg.why === "ref" && <span className="muted b12">{refText(hg)}</span>}
-            {!hg.doubtful && !hg.vatKnown && hg.price != null && <span className="muted b12">El operador no indica si el precio lleva IVA.</span>}
+            {!hg.doubtful && !hg.vatKnown && hg.price != null && <span className="muted b12">{vatText(hg)}</span>}
             <div className="saving-box">
               Llenar del 20 al 100 %:{" "}
               <strong>
@@ -329,7 +329,7 @@ export function Charge() {
 
         {data && (
           <p className="source">
-            Fuente: Red Eléctrica de España (REVE, Registro de Vehículo Eléctrico). {datesText(data.updated, data.prices)} Precios con IVA (cuando el operador lo indica) calculados a partir de la tarifa
+            Fuente: Red Eléctrica de España (REVE, Registro de Vehículo Eléctrico). {datesText(data.updated, data.prices)} Precios con IVA (si el operador no lo indica, se suma el 21 %) calculados a partir de la tarifa
             que publica cada operador; el tiempo de carga es aproximado. Distancias en línea recta. <Link href="/cargadores">Cargadores por provincia</Link> · <Link href="/privacidad">Fuentes y privacidad</Link>
           </p>
         )}

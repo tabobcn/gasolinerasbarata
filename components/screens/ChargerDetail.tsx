@@ -266,7 +266,7 @@ export function ChargerDetail({ id, group }: { id: string; group?: string | null
             )}
             {hasPrice(sel.conn) && (
               <span className="muted xs">
-                {vatPct(sel.conn.v) != null ? `Precios con IVA (${vatPct(sel.conn.v)} %)` : "El operador no indica si lleva IVA: se muestra el precio tal cual lo publica"}
+                {sel.conn.va ? `El operador no indica los impuestos: se ha sumado el ${sel.conn.v} %` : vatPct(sel.conn.v) != null ? `Precios con IVA (${vatPct(sel.conn.v)} %)` : "El operador no indica si lleva IVA: se muestra el precio tal cual lo publica"}
                 {sel.conn.tu ? ` · tarifa publicada el ${fmtDateTime(sel.conn.tu)}` : ""}
               </span>
             )}
