@@ -24,7 +24,8 @@ export function RouteScreen() {
   const { loc } = useLocation();
   const [settings, setSettings] = useSettings();
   const fuel = settings.fuels.includes(settings.fuel) ? settings.fuel : (settings.fuels[0] ?? "g95");
-  const [selId, setSelId] = useState<string | null>(null);
+  const [selId, setSelId] = useState<string | null>(null); // parada abierta en la hoja de "cómo llegar"
+  const [mapSel, setMapSel] = useState<string | null>(null); // parada tocada en el mapa (tarjeta sobre el mapa)
   const [from, setFrom] = useState<Pt | null>(null); // null = mi ubicación
   const [to, setTo] = useState<Pt | null>(null);
   const [editing, setEditing] = useState<null | "from" | "to">(null);
@@ -50,6 +51,7 @@ export function RouteScreen() {
   const stops = data?.stops ?? [];
   const best = stops.find((s) => s.bestOverall);
   const sel = stops.find((s) => s.station.id === selId) ?? null;
+  const onMap = stops.find((s) => s.station.id === mapSel) ?? null;
   const paid = (s: RouteStop) => paidPrice(s.station, fuel) ?? s.station.prices[fuel]!;
   const sub = (s: RouteStop) => `Km ${s.kmAlong} · desvío +${s.detourMin} min`;
   const fill = (s: RouteStop) => `Llenar ${fmtEuros(paid(s) * settings.tank)} €`;
@@ -133,7 +135,41 @@ export function RouteScreen() {
 
         {mode === "fuel" && data && origin && to && (
           <>
-            {data.line.length > 1 && <RouteMap line={data.line} stops={stops} fuel={fuel} selected={selId} onSelect={setSelId} />}
+            {data.line.length > 1 && (
+              <div className="route-map-wrap">
+                <RouteMap line={data.line} stops={stops} fuel={fuel} selected={mapSel} onSelect={setMapSel} />
+                {onMap ? (
+                  <div className="route-card">
+                    <div className="row-10">
+                      <BrandTile brand={onMap.station.brand} size={40} />
+                      <span className="col-2 grow min0">
+                        <span className="b15 ellipsis">{onMap.station.name}</span>
+                        <span className="muted xs ellipsis">
+                          {sub(onMap)} · {fill(onMap).toLowerCase()}
+                        </span>
+                      </span>
+                      <span className="col-0 end">
+                        <span className="price-sm green">{fmtPrice(paid(onMap))} €</span>
+                        {onMap.bestOverall ? <span className="tag best">La más barata</span> : onMap.bestInSeg && data.segments.length > 1 ? <span className="tag best">Mejor del tramo</span> : null}
+                      </span>
+                      <button type="button" className="icon-btn ghost small" aria-label="Cerrar" onClick={() => setMapSel(null)}>
+                        <Icon name="x" size={18} />
+                      </button>
+                    </div>
+                    <div className="row-8">
+                      <button type="button" className="btn primary small grow" onClick={() => setSelId(onMap.station.id)}>
+                        <Icon name="navigate" size={16} stroke={2.4} /> Parar aquí
+                      </button>
+                      <Link className="btn soft small grow" href={stationHref(onMap.station)}>
+                        Ver ficha
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  stops.length > 0 && <span className="route-hint">Toca una gasolinera del mapa para ver su precio</span>
+                )}
+              </div>
+            )}
 
             {!stops.length && <EmptyState icon="pump" title="Sin gasolineras en la ruta" text={`No hemos encontrado ${fuelByKey(fuel)?.label.toLowerCase()} a menos de 2,5 km del recorrido.`} />}
 
@@ -172,7 +208,7 @@ export function RouteScreen() {
                   )}
                   {!inSeg.length && <span className="muted b13">Sin gasolineras con {fuelByKey(fuel)?.label.toLowerCase()} junto a la ruta en este tramo.</span>}
                   {inSeg.map((s) => (
-                    <button key={s.station.id} type="button" className={`row-card${s.station.id === selId ? " sel" : ""}`} onClick={() => setSelId(s.station.id)}>
+                    <button key={s.station.id} type="button" className={`row-card${s.station.id === mapSel ? " sel" : ""}`} onClick={() => setSelId(s.station.id)}>
                       <BrandTile brand={s.station.brand} size={40} />
                       <span className="col-2 grow min0 left">
                         <span className="b15 ellipsis">{s.station.name}</span>

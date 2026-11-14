@@ -2098,3 +2098,11 @@ img.side-logo { background: none; border-radius: 0; }
 
 /* ===== Marcas: ver solo las elegidas ===== */
 .opt.pick.on { background: var(--green); color: #fff; }
+
+/* ===== Ruta: tarjeta de la gasolinera sobre el mapa ===== */
+.route-map-wrap { position: relative; }
+.route-map-wrap .route-map { height: 400px; }
+.route-card { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 5; display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 16px; background: var(--surface); box-shadow: 0 6px 20px rgba(14, 23, 38, 0.22); }
+.route-hint { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 4; white-space: nowrap; padding: 6px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.94); box-shadow: 0 2px 8px rgba(14, 23, 38, 0.15); font-size: 12px; font-weight: 700; color: var(--ink-2); pointer-events: none; }
+.icon-btn.ghost.small { width: 32px; height: 32px; }
+.route-map .maplibregl-ctrl-top-right { top: 0; }

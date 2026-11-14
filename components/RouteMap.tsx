@@ -10,7 +10,7 @@ import { paidPrice } from "@/lib/discounts";
 const MAP_STYLE = process.env.NEXT_PUBLIC_MAP_STYLE || "https://tiles.openfreemap.org/styles/positron";
 
 /** Mapa de la ruta: la línea del viaje y las paradas. Las mejores de cada tramo llevan el precio; el resto son puntos. */
-export function RouteMap({ line, stops, fuel, selected, onSelect }: { line: [number, number][]; stops: RouteStop[]; fuel: FuelKey; selected: string | null; onSelect: (id: string) => void }) {
+export function RouteMap({ line, stops, fuel, selected, onSelect }: { line: [number, number][]; stops: RouteStop[]; fuel: FuelKey; selected: string | null; onSelect: (id: string | null) => void }) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<ML.Map | null>(null);
   const libRef = useRef<typeof ML | null>(null);
@@ -31,6 +31,7 @@ export function RouteMap({ line, stops, fuel, selected, onSelect }: { line: [num
       const map = new lib.Map({ container: el.current, style: MAP_STYLE, center: [-3.7, 40.4], zoom: 5, attributionControl: false, dragRotate: false, pitchWithRotate: false });
       map.touchZoomRotate.disableRotation();
       map.addControl(new lib.AttributionControl({ compact: true }), "top-right");
+      map.on("click", () => pick.current(null)); // tocar el mapa fuera de una gasolinera cierra su tarjeta
       map.on("load", () => el.current?.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show"));
       mapRef.current = map;
       setReady(true);
@@ -106,6 +107,12 @@ export function RouteMap({ line, stops, fuel, selected, onSelect }: { line: [num
       markers.current.push(new lib.Marker({ element: wrap, anchor: big ? "bottom" : "center" }).setLngLat([s.station.lon, s.station.lat]).addTo(map));
     }
   }, [ready, stops, fuel, selected, line]);
+
+  // Al elegir una parada se centra un poco por encima de la tarjeta, sin cambiar el zoom
+  useEffect(() => {
+    const s = stops.find((x) => x.station.id === selected);
+    if (ready && s) mapRef.current?.easeTo({ center: [s.station.lon, s.station.lat], offset: [0, -60], duration: 350 });
+  }, [ready, selected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div ref={el} className="route-map" aria-label="Mapa de la ruta con las gasolineras" />;
 }
