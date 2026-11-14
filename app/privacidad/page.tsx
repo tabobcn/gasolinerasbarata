@@ -28,8 +28,10 @@ export default function Page() {
               precios que comunica cada gasolinera; los consultamos cada media hora.
             </li>
             <li>
-              <strong>Puntos de recarga:</strong> Red Eléctrica de España (REVE, Registro de Vehículo Eléctrico). Mostramos sus datos sin modificarlos, con la
-              fecha de la última actualización, y solo para uso no comercial.
+              <strong>Puntos de recarga:</strong> Red Eléctrica de España (REVE, Registro de Vehículo Eléctrico). Mostramos los datos que cada
+              operador declara, con la fecha de la última actualización, y solo para uso no comercial. Para que el precio se parezca al que vas a pagar: si
+              un cargador cobra distinto según la hora, enseñamos el más alto (el de día), y si el operador no indica los impuestos, sumamos el IVA (21 %; en
+              Canarias, el IGIC). En la ficha de cada punto tienes la tarifa completa tal como la declara el operador.
             </li>
             <li>
               <strong>Mapa, buscador de lugares y rutas:</strong> © colaboradores de OpenStreetMap, servido por OpenFreeMap (mapa), Photon de Komoot (buscador)
@@ -48,7 +50,7 @@ export default function Page() {
             Qué se queda en tu móvil
           </h2>
           <p className="b15">
-            Tu coche, tus favoritas, Casa y Trabajo, tus alertas y tus descuentos se guardan <strong>solo en tu navegador</strong>. Nosotros no los vemos. Si
+            Tu coche, tus favoritas, Casa y Trabajo, tus alertas, tus descuentos, los repostajes que apuntas, las marcas que ocultas y las últimas gasolineras que has mirado o a las que has ido se guardan <strong>solo en tu navegador</strong>. Nosotros no los vemos. Si
             borras los datos de la web o desinstalas la app, desaparecen.
           </p>
         </section>
@@ -113,7 +115,7 @@ export default function Page() {
         </section>
 
         <p className="source">
-          Última revisión: 10 de noviembre de 2026. <Link href="/">Volver a la app</Link>
+          Última revisión: 14 de noviembre de 2026. <Link href="/">Volver a la app</Link>
         </p>
       </div>
       <BottomNav />
