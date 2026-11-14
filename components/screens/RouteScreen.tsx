@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { BottomNav, BrandTile, EmptyState, FuelChips, Sheet, Skeleton } from "../ui";
 import { Icon } from "../Icon";
 import { PlaceSearch } from "../PlaceSearch";
@@ -50,6 +50,14 @@ export function RouteScreen() {
 
   const stops = data?.stops ?? [];
   const best = stops.find((s) => s.bestOverall);
+  const points = useMemo(
+    () =>
+      (data?.stops ?? []).map((s) => {
+        const price = paidPrice(s.station, fuel) ?? s.station.prices[fuel];
+        return { id: s.station.id, lat: s.station.lat, lon: s.station.lon, text: fmtPrice(price), aria: `${s.station.name}, ${fmtPrice(price)} euros, kilómetro ${s.kmAlong}`, big: s.bestInSeg, top: s.bestOverall };
+      }),
+    [data, fuel],
+  );
   const sel = stops.find((s) => s.station.id === selId) ?? null;
   const onMap = stops.find((s) => s.station.id === mapSel) ?? null;
   const paid = (s: RouteStop) => paidPrice(s.station, fuel) ?? s.station.prices[fuel]!;
@@ -137,7 +145,7 @@ export function RouteScreen() {
           <>
             {data.line.length > 1 && (
               <div className="route-map-wrap">
-                <RouteMap line={data.line} stops={stops} fuel={fuel} selected={mapSel} onSelect={setMapSel} />
+                <RouteMap line={data.line} points={points} selected={mapSel} onSelect={setMapSel} label="Mapa de la ruta con las gasolineras" />
                 {onMap ? (
                   <div className="route-card">
                     <div className="row-10">

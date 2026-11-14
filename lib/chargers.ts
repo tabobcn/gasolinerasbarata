@@ -120,9 +120,12 @@ export type Car = { electric: boolean; plugs: string[]; ac: number; dc: number; 
 
 export function carFrom(s: Settings): Car {
   const electric = s.carType === "ev" || s.carType === "phev";
+  // Si el coche tiene carga rápida pero no se marcó ningún enchufe rápido, se supone CCS2 (el de casi todos en Europa);
+  // sin esto no le servía ningún cargador rápido
+  const plugs = s.dc > 0 && !s.plugs.some((p) => p === "ccs2" || p === "chademo") ? [...s.plugs, "ccs2"] : s.plugs;
   return {
     electric,
-    plugs: s.plugs,
+    plugs,
     ac: s.ac,
     dc: s.dc,
     battery: s.battery,
@@ -726,14 +729,16 @@ export const EV_KWH_100KM = 17;
 
 // ---------- Cargadores en una ruta ----------
 
-export type ChargerRouteStop = { charger: Charger; kmAlong: number; offRouteKm: number; detourMin: number };
+export type ChargerRouteStop = { charger: Charger; kmAlong: number; offRouteKm: number; detourMin: number; seg: number; bestInSeg?: boolean; bestOverall?: boolean };
 export type ChargerRouteResponse = {
   distanceKm: number;
   durationMin: number;
   updated: string | null;
   prices?: string | null;
   considered: number; // puntos de recarga junto a la ruta
-  stops: ChargerRouteStop[];
+  stops: ChargerRouteStop[]; // ordenadas por kilómetro
+  segments: { from: number; to: number }[];
+  line: [number, number][]; // [lon, lat] para dibujar la ruta
   waypoints: { km: number; label: string }[];
 };
 

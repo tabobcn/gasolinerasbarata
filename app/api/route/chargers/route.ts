@@ -74,12 +74,33 @@ export async function GET(req: NextRequest) {
       .filter((v): v is NonNullable<typeof v> => v !== null)
       .sort((a, b) => a.score - b.score || b.g.kw - a.g.kw || a.x.dist - b.x.dist);
 
-    const stops: ChargerRouteStop[] = scored.slice(0, 8).map(({ x, detourKm }) => ({
-      charger: x.ch,
-      kmAlong: Math.round(x.along),
-      offRouteKm: Math.round(x.dist * 10) / 10,
-      detourMin: Math.max(1, Math.round((detourKm / 40) * 60)),
-    }));
+    // Tramos de unos 90 km: en cada uno, sus mejores paradas, para que haya dónde cargar en todo el viaje
+    const nSeg = Math.max(1, Math.round(route.distanceKm / 90));
+    const segLen = route.distanceKm / nSeg;
+    const perSeg = Math.min(8, Math.max(3, Math.ceil(25 / nSeg)));
+    const segOf = (along: number) => Math.min(nSeg - 1, Math.max(0, Math.floor(along / segLen)));
+    const stops: ChargerRouteStop[] = [];
+    for (let i = 0; i < nSeg; i++) {
+      scored
+        .filter((v) => segOf(v.x.along) === i)
+        .slice(0, perSeg) // ya vienen ordenadas de mejor a peor
+        .forEach(({ x, detourKm }, k) =>
+          stops.push({
+            charger: x.ch,
+            kmAlong: Math.round(x.along),
+            offRouteKm: Math.round(x.dist * 10) / 10,
+            detourMin: Math.max(1, Math.round((detourKm / 40) * 60)),
+            seg: i,
+            ...(k === 0 ? { bestInSeg: true } : {}),
+          }),
+        );
+    }
+    const top = scored.find((v) => stops.some((st) => st.charger.id === v.x.ch.id));
+    const topStop = top && stops.find((st) => st.charger.id === top.x.ch.id);
+    if (topStop) topStop.bestOverall = true;
+    stops.sort((a, b) => a.kmAlong - b.kmAlong);
+    const step = Math.max(1, Math.ceil(route.line.length / 400));
+    const line = route.line.filter((_, i) => i % step === 0 || i === route.line.length - 1).map(([lon, lat]) => [Math.round(lon * 1e5) / 1e5, Math.round(lat * 1e5) / 1e5] as [number, number]);
 
     const body: ChargerRouteResponse = {
       distanceKm: Math.round(route.distanceKm),
@@ -88,6 +109,8 @@ export async function GET(req: NextRequest) {
       prices: data.prices ?? null,
       considered: corridor.length,
       stops,
+      segments: Array.from({ length: nSeg }, (_, i) => ({ from: Math.round(i * segLen), to: Math.round((i + 1) * segLen) })),
+      line,
       waypoints: waypointsFor(
         corridor.map((x) => ({ along: x.along, dist: x.dist, label: prettyCity(x.ch.city) })),
         route.distanceKm,

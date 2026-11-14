@@ -6,6 +6,7 @@ import { EmptyState, Skeleton } from "./ui";
 import { Icon } from "./Icon";
 import { ChargerTile } from "./ChargerBits";
 import { navUrl } from "./NavigateProvider";
+import { RouteMap } from "./RouteMap";
 import { useSettings } from "@/lib/store";
 import { r3, useJSON } from "@/lib/useJSON";
 import { fmtMinutes } from "@/lib/format";
@@ -40,8 +41,23 @@ export function ChargeRoute({ origin, to }: { origin: Pt; to: Pt }) {
       .filter((x): x is typeof x & { g: NonNullable<typeof x.g> } => x.g !== null);
   }, [data, fast, car.electric, car.plugs.join(","), car.ac, car.dc, car.battery]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const best = stops[0];
-  const total = data?.distanceKm || 1;
+  const best = stops.find((x) => x.st.bestOverall) ?? stops[0];
+  const [mapSel, setMapSel] = useState<string | null>(null);
+  const onMap = stops.find((x) => x.st.charger.id === mapSel) ?? null;
+  const points = useMemo(
+    () =>
+      stops.map(({ st, g }) => ({
+        id: st.charger.id,
+        lat: st.charger.lat,
+        lon: st.charger.lon,
+        text: g.price != null ? euro(g.price) : kw(g.kw),
+        aria: `${chargerName(st.charger)}, kilómetro ${st.kmAlong}`,
+        big: st.bestInSeg,
+        top: st.charger.id === best?.st.charger.id,
+      })),
+    [stops, best?.st.charger.id],
+  );
+  const segs = data?.segments?.length ? data.segments : [{ from: 0, to: data?.distanceKm ?? 0 }];
   const target = (dc: boolean) => (dc ? "20 → 80 %" : "20 → 100 %");
 
   return (
@@ -81,29 +97,46 @@ export function ChargeRoute({ origin, to }: { origin: Pt; to: Pt }) {
             <span className="muted b12">{data.considered} puntos de recarga a menos de 3 km del recorrido</span>
           </div>
 
-          <div className="card route-strip" role="img" aria-label={`Recorrido de ${data.distanceKm} km con ${Math.min(4, stops.length)} paradas recomendadas`}>
-            <div className="strip">
-              <span className="strip-line" />
-              <span className="strip-end start" style={{ left: "0%" }} />
-              <span className="strip-end" style={{ left: "100%" }} />
-              {stops.slice(0, 4).map(({ st }, i) => (
-                <span key={st.charger.id} className={`strip-stop ev${i === 0 ? " best" : ""}`} style={{ left: `${Math.min(100, (st.kmAlong / total) * 100)}%` }}>
-                  {i === 0 ? "1" : ""}
-                </span>
-              ))}
+          {data.line?.length > 1 && stops.length > 0 && (
+            <div className="route-map-wrap">
+              <RouteMap line={data.line} points={points} selected={mapSel} onSelect={setMapSel} label="Mapa de la ruta con los puntos de recarga" />
+              {onMap ? (
+                <div className="route-card">
+                  <div className="row-10">
+                    <ChargerTile ch={onMap.st.charger} size={40} />
+                    <span className="col-2 grow min0">
+                      <span className="b15 ellipsis">{chargerName(onMap.st.charger)}</span>
+                      <span className="muted xs ellipsis">
+                        Km {onMap.st.kmAlong} · desvío +{onMap.st.detourMin} min · {PLUG_LABEL[onMap.g.kind]} {kw(onMap.g.kw)}
+                      </span>
+                      <span className={`b12 tone-${availText(onMap.s.avail).tone}`}>{availText(onMap.s.avail).text}</span>
+                    </span>
+                    <span className="col-0 end">
+                      <span className={`price-sm${onMap.g.price != null ? " blue-ink" : " muted"}`}>{onMap.g.price != null ? `${euro(onMap.g.price)} €` : "—"}</span>
+                      <span className="muted xs nowrap">{onMap.g.trip.cost != null && !onMap.g.doubtful ? `${euro(onMap.g.trip.cost)} € · ` : ""}{fmtMinutes(onMap.g.trip.minutes)}</span>
+                    </span>
+                    <button type="button" className="icon-btn ghost small" aria-label="Cerrar" onClick={() => setMapSel(null)}>
+                      <Icon name="x" size={18} />
+                    </button>
+                  </div>
+                  <div className="row-8">
+                    <a className="btn primary small grow" href={navUrl("maps", onMap.st.charger, { origin, destination: to })} target="_blank" rel="noopener">
+                      <Icon name="navigate" size={16} stroke={2.4} /> Parar aquí
+                    </a>
+                    <Link className="btn soft small grow" href={chargerHref(onMap.st.charger)}>
+                      Ver ficha
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <span className="route-hint">Toca un cargador del mapa para ver su precio</span>
+              )}
             </div>
-            <div className="strip-labels">
-              <span>{origin.label.replace(/^Mi ubicación · /, "")}</span>
-              {data.waypoints.map((w) => (
-                <span key={w.km}>{w.label}</span>
-              ))}
-              <span>{to.label}</span>
-            </div>
-          </div>
+          )}
 
           <div className="row-between baseline">
             <h2 className="h2">Dónde cargar</h2>
-            <span className="muted b13">Por coste, con el desvío</span>
+            <span className="muted b13">Por kilómetro</span>
           </div>
 
           {!stops.length && (
@@ -122,6 +155,7 @@ export function ChargeRoute({ origin, to }: { origin: Pt; to: Pt }) {
 
           {best && (
             <div className="card hero stack-12">
+              <span className="eyebrow blue">LA MEJOR PARADA DEL VIAJE</span>
               <Link href={chargerHref(best.st.charger)} className="row-12 plain">
                 <ChargerTile ch={best.st.charger} size={48} />
                 <span className="col-2 grow min0 left">
@@ -162,32 +196,46 @@ export function ChargeRoute({ origin, to }: { origin: Pt; to: Pt }) {
             </div>
           )}
 
-          <div className="stack-8">
-            {stops.slice(1).map(({ st, s, g }) => (
-              <Link key={st.charger.id} href={chargerHref(st.charger)} className="row-card">
-                <ChargerTile ch={st.charger} size={40} />
-                <span className="col-2 grow min0">
-                  <span className="b15 ellipsis">{chargerName(st.charger)}</span>
-                  <span className="muted b12 ellipsis">
-                    Km {st.kmAlong} · desvío +{st.detourMin} min · {PLUG_LABEL[g.kind]} {kw(g.kw)}
-                  </span>
-                  <span className={`b12 tone-${availText(s.avail).tone}`}>{availText(s.avail).text}</span>
-                </span>
-                <span className="col-2 end">
-                  <span className={`price-sm${g.price != null ? " blue-ink" : " muted"}`}>{g.price != null ? `${euro(g.price)} €` : "—"}</span>
-                  <span className="muted b12 nowrap">
-                    {g.doubtful || !g.vatKnown ? `${priceNote(g)} · ` : g.trip.cost != null ? `${euro(g.trip.cost)} € · ` : ""}
-                    {fmtMinutes(g.trip.minutes)}
-                  </span>
-                </span>
-              </Link>
-            ))}
-          </div>
+          {segs.map((sg, i) => {
+            const inSeg = stops.filter((x) => (x.st.seg ?? 0) === i);
+            return (
+              <section key={sg.from} className="stack-8" aria-label={`Tramo del kilómetro ${sg.from} al ${sg.to}`}>
+                {segs.length > 1 && (
+                  <div className="row-between baseline">
+                    <h2 className="h2">
+                      Km {sg.from}–{sg.to}
+                    </h2>
+                    <span className="muted b13">{i === 0 ? "Salida" : i === segs.length - 1 ? "Llegada" : `Tramo ${i + 1}`}</span>
+                  </div>
+                )}
+                {!inSeg.length && stops.length > 0 && <span className="muted b13">Sin cargadores que te sirvan junto a la ruta en este tramo.</span>}
+                {inSeg.map(({ st, s, g }) => (
+                  <Link key={st.charger.id} href={chargerHref(st.charger)} className={`row-card${st.charger.id === mapSel ? " sel" : ""}`}>
+                    <ChargerTile ch={st.charger} size={40} />
+                    <span className="col-2 grow min0">
+                      <span className="b15 ellipsis">{chargerName(st.charger)}</span>
+                      <span className="muted b12 ellipsis">
+                        Km {st.kmAlong} · desvío +{st.detourMin} min · {PLUG_LABEL[g.kind]} {kw(g.kw)}
+                      </span>
+                      <span className={`b12 tone-${availText(s.avail).tone}`}>{availText(s.avail).text}</span>
+                      {st.bestInSeg && segs.length > 1 && <span className="tag best fit">Mejor del tramo</span>}
+                    </span>
+                    <span className="col-2 end">
+                      <span className={`price-sm${g.price != null ? " blue-ink" : " muted"}`}>{g.price != null ? `${euro(g.price)} €` : "—"}</span>
+                      <span className="muted b12 nowrap">
+                        {g.doubtful || !g.vatKnown ? `${priceNote(g)} · ` : g.trip.cost != null ? `${euro(g.trip.cost)} € · ` : ""}
+                        {fmtMinutes(g.trip.minutes)}
+                      </span>
+                    </span>
+                  </Link>
+                ))}
+              </section>
+            );
+          })}
 
           <p className="source">
             Fuente: Red Eléctrica de España (REVE). {datesText(data.updated, data.prices)} Ruta calculada con OSRM (OpenStreetMap). Coste y tiempo
-            aproximados de cargar del 20 al 80 % en carga rápida y del 20 al 100 % en carga normal, con precios con IVA cuando el operador lo indica. Para ordenar
-            se suma lo que gastas en el desvío.
+            aproximados de cargar del 20 al 80 % en carga rápida y del 20 al 100 % en carga normal, con precios con IVA cuando el operador lo indica. En cada tramo se eligen las paradas de menor coste, contando el desvío.
           </p>
         </>
       )}

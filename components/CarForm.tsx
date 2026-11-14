@@ -124,7 +124,7 @@ export function CarForm({ s, set, hideType }: { s: Settings; set: (patch: Partia
             <span className="b15">Carga rápida (DC)</span>
             <div className="grid-4">
               {DCS.map((v) => (
-                <button key={v} type="button" aria-pressed={s.dc === v} className={`opt blue small${s.dc === v ? " on" : ""}`} onClick={() => set({ dc: v })}>
+                <button key={v} type="button" aria-pressed={s.dc === v} className={`opt blue small${s.dc === v ? " on" : ""}`} onClick={() => set({ dc: v, ...(v > 0 && !s.plugs.some((x) => x === "ccs2" || x === "chademo") ? { plugs: [...s.plugs, "ccs2"] } : {}) })}>
                   {v === 0 ? "No tiene" : v === 150 ? "150+ kW" : `${v} kW`}
                 </button>
               ))}

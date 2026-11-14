@@ -2,15 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import type * as ML from "maplibre-gl";
-import type { FuelKey } from "@/lib/fuels";
-import type { RouteStop } from "@/lib/types";
-import { fmtPrice } from "@/lib/format";
-import { paidPrice } from "@/lib/discounts";
+
+/** Un punto del mapa. `text` es lo que se lee en la etiqueta (precio); los que no son `big` salen como punto */
+export type RoutePoint = { id: string; lat: number; lon: number; text: string; aria: string; big?: boolean; top?: boolean };
 
 const MAP_STYLE = process.env.NEXT_PUBLIC_MAP_STYLE || "https://tiles.openfreemap.org/styles/positron";
 
-/** Mapa de la ruta: la línea del viaje y las paradas. Las mejores de cada tramo llevan el precio; el resto son puntos. */
-export function RouteMap({ line, stops, fuel, selected, onSelect }: { line: [number, number][]; stops: RouteStop[]; fuel: FuelKey; selected: string | null; onSelect: (id: string | null) => void }) {
+/** Mapa de la ruta: la línea del viaje y las paradas (gasolineras o cargadores). Las mejores llevan el precio; el resto son puntos. */
+export function RouteMap({ line, points, selected, onSelect, label }: { line: [number, number][]; points: RoutePoint[]; selected: string | null; onSelect: (id: string | null) => void; label: string }) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<ML.Map | null>(null);
   const libRef = useRef<typeof ML | null>(null);
@@ -83,36 +82,43 @@ export function RouteMap({ line, stops, fuel, selected, onSelect }: { line: [num
       dot("route-end", line[line.length - 1]);
     }
     // primero los puntos, luego las etiquetas y al final la mejor y la elegida, para que queden encima
-    const rank = (s: RouteStop) => (s.station.id === selected ? 3 : s.bestOverall ? 2 : s.bestInSeg ? 1 : 0);
-    for (const s of [...stops].sort((a, b) => rank(a) - rank(b))) {
-      const on = s.station.id === selected;
-      const big = on || s.bestInSeg || s.bestOverall;
+    const rank = (s: RoutePoint) => (s.id === selected ? 3 : s.top ? 2 : s.big ? 1 : 0);
+    for (const s of [...points].sort((a, b) => rank(a) - rank(b))) {
+      const on = s.id === selected;
+      const big = on || s.big || s.top;
       const wrap = document.createElement("div");
       const node = document.createElement("button");
       wrap.appendChild(node);
       node.type = "button";
-      const price = paidPrice(s.station, fuel) ?? s.station.prices[fuel];
-      node.setAttribute("aria-label", `${s.station.name}, ${fmtPrice(price)} euros, kilómetro ${s.kmAlong}`);
+      node.setAttribute("aria-label", s.aria);
       if (big) {
         node.className = `pin${on ? " on" : ""}`;
-        node.innerHTML = `<span class="pin-pill route${s.bestOverall && !on ? " top" : ""}"><span class="pin-price">${fmtPrice(price)}</span></span><span class="pin-tip"></span>`;
+        const pill = document.createElement("span");
+        pill.className = `pin-pill route${s.top && !on ? " top" : ""}`;
+        const price = document.createElement("span");
+        price.className = "pin-price";
+        price.textContent = s.text;
+        pill.appendChild(price);
+        const tip = document.createElement("span");
+        tip.className = "pin-tip";
+        node.append(pill, tip);
       } else {
         node.className = "pin-dot";
         node.style.background = "#5B6675";
       }
       node.addEventListener("click", (e) => {
         e.stopPropagation();
-        pick.current(s.station.id);
+        pick.current(s.id);
       });
-      markers.current.push(new lib.Marker({ element: wrap, anchor: big ? "bottom" : "center" }).setLngLat([s.station.lon, s.station.lat]).addTo(map));
+      markers.current.push(new lib.Marker({ element: wrap, anchor: big ? "bottom" : "center" }).setLngLat([s.lon, s.lat]).addTo(map));
     }
-  }, [ready, stops, fuel, selected, line]);
+  }, [ready, points, selected, line]);
 
   // Al elegir una parada se centra un poco por encima de la tarjeta, sin cambiar el zoom
   useEffect(() => {
-    const s = stops.find((x) => x.station.id === selected);
-    if (ready && s) mapRef.current?.easeTo({ center: [s.station.lon, s.station.lat], offset: [0, -60], duration: 350 });
+    const s = points.find((x) => x.id === selected);
+    if (ready && s) mapRef.current?.easeTo({ center: [s.lon, s.lat], offset: [0, -60], duration: 350 });
   }, [ready, selected]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <div ref={el} className="route-map" aria-label="Mapa de la ruta con las gasolineras" />;
+  return <div ref={el} className="route-map" aria-label={label} />;
 }
