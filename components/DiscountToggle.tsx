@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useDiscounts } from "@/lib/discountStore";
-import { activeCount, allPrograms } from "@/lib/discounts";
+import { activeCount, allPrograms, discText, isLive } from "@/lib/discounts";
 import { Icon } from "./Icon";
 
 /** Interruptor "Precios con mis descuentos" (o enlace para añadirlos si no hay ninguno) */
@@ -19,15 +19,16 @@ export function DiscountToggle() {
     );
   }
   const names = allPrograms(d)
-    .filter((p) => d.items[p.id]?.on && d.items[p.id].cts > 0)
-    .map((p) => `${p.short} −${d.items[p.id].cts}`)
+    .filter((p) => isLive(d.items[p.id]))
+    .map((p) => `${p.short} ${discText({ label: "", ...d.items[p.id] })}`)
+    .concat(Object.values(d.stations ?? {}).some((i) => isLive(i)) ? ["descuentos propios"] : [])
     .join(" · ");
   return (
     <div className="disc-toggle">
       <Icon name="card" size={20} color="#8A4F00" />
       <Link href="/descuentos" className="col-2 grow min0 plain">
         <span className="b14">Precios con mis descuentos</span>
-        <span className="muted b12 ellipsis">{d.enabled ? `Usando: ${names} cts` : "Ahora ves el precio sin tarjetas"}</span>
+        <span className="muted b12 ellipsis">{d.enabled ? `Usando: ${names}` : "Ahora ves el precio sin tarjetas"}</span>
       </Link>
       <button
         type="button"

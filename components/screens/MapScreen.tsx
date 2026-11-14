@@ -10,7 +10,7 @@ import { stationHref } from "../StationRow";
 import { BottomNav, BrandTile, Sheet } from "../ui";
 import { ChargerTile } from "../ChargerBits";
 import { Icon, LocateIcon } from "../Icon";
-import { settingsStore, useMode, useSettings, useShows } from "@/lib/store";
+import { settingsStore, useFavorites, useMode, useSettings, useShows } from "@/lib/store";
 import { brandVisible } from "@/lib/brands";
 import { r3, stationsUrl, useJSON } from "@/lib/useJSON";
 import type { Station, StationsResponse } from "@/lib/types";
@@ -21,7 +21,7 @@ import { openStatus } from "@/lib/hours";
 import { brandStyle } from "@/lib/brands";
 import { haversineKm } from "@/lib/geo";
 import { useDiscounts } from "@/lib/discountStore";
-import { activeCount, applyDiscounts } from "@/lib/discounts";
+import { activeCount, applyDiscounts, discText, paidPrice } from "@/lib/discounts";
 import { availText, carFrom, chargerHref, chargerName, cpoStyle, displayGroup, EV_KWH_100KM, summarize, type Car, type ChargersResponse, type Summary } from "@/lib/chargers";
 
 const RADII = [2, 5, 10, 20];
@@ -63,6 +63,8 @@ export function MapScreen({ embedded }: { embedded?: "fuel" | "charge" } = {}) {
   // Gasolineras o cargadores (nunca mezclados). Recuerda el último modo usado.
   const [storeMode, setMode] = useMode();
   const shows = useShows();
+  const [favs] = useFavorites();
+  const favIds = favs.map((f) => f.id).join(",");
   const mode = embedded ?? storeMode;
   const car = carFrom(settings);
   const [onlyCompat, setOnlyCompat] = useState(true);
@@ -232,13 +234,15 @@ export function MapScreen({ embedded }: { embedded?: "fuel" | "charge" } = {}) {
       const p = s.prices[fuel]!;
       const lv = levelFor(p, avg);
       const on = s.id === selId;
+      const fav = favIds.split(",").includes(s.id);
       const b = brandStyle(s.brand);
       const wrap = document.createElement("div");
       const node = document.createElement("button");
       wrap.appendChild(node);
       node.type = "button";
-      node.className = compact && !on ? "pin-dot" : `pin${on ? " on" : ""}`;
-      node.setAttribute("aria-label", `${s.name}, ${fmtPrice(p)} euros`);
+      node.className = compact && !on ? `pin-dot${fav ? " fav" : ""}` : `pin${on ? " on" : ""}`;
+      const shown = paidPrice(s, fuel) ?? p; // con descuento en saldo se enseña lo que se paga
+      node.setAttribute("aria-label", `${s.name}, ${fmtPrice(shown)} euros${fav ? ", favorita" : ""}`);
       if (compact && !on) {
         node.style.background = lv.color;
       } else {
@@ -248,7 +252,7 @@ export function MapScreen({ embedded }: { embedded?: "fuel" | "charge" } = {}) {
                 ? `<span class="pin-tile logo"><img src="${b.logo}" alt="" loading="lazy" decoding="async"></span>`
                 : `<span class="pin-tile" style="background:${b.bg};color:${b.fg};${b.stripe ? `box-shadow:inset 0 -4px 0 ${b.stripe}` : ""}">${esc(b.mark)}</span>`
             }
-            <span class="pin-price" style="${on ? "" : `color:${lv.color}`}">${fmtPrice(p)}</span>
+            <span class="pin-price" style="${on ? "" : `color:${lv.color}`}">${fmtPrice(shown)}</span>${fav ? `<span class="pin-star" aria-hidden="true">★</span>` : ""}
           </span><span class="pin-tip"></span>`;
       }
       node.addEventListener("click", (e) => {
@@ -258,7 +262,7 @@ export function MapScreen({ embedded }: { embedded?: "fuel" | "charge" } = {}) {
       const m = new lib.Marker({ element: wrap, anchor: compact && !on ? "center" : "bottom" }).setLngLat([s.lon, s.lat]).addTo(map);
       markersRef.current.push(m);
     }
-  }, [stations, fuel, avg, selected?.id, compact, ready, mode, chargers, selCh?.ch.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stations, fuel, avg, selected?.id, compact, ready, mode, chargers, selCh?.ch.id, favIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mi posición
   useEffect(() => {
@@ -400,6 +404,13 @@ export function MapScreen({ embedded }: { embedded?: "fuel" | "charge" } = {}) {
         {(loading || chRes.loading) && <span className="loading-pill">{mode === "fuel" ? "Cargando precios…" : "Cargando cargadores…"}</span>}
       </div>
 
+      {mode === "fuel" && stations.length > 0 && !embedded && (
+        <div className="map-legend" style={{ bottom: showCard ? 300 : 104 }} aria-label="Colores de los precios frente a la media de la zona">
+          <span><i style={{ background: "#0B7A43" }} />Barato</span>
+          <span><i style={{ background: "#8A4F00" }} />En la media</span>
+          <span><i style={{ background: "#B5341A" }} />Caro</span>
+        </div>
+      )}
       <div className="map-side" style={embedded ? { bottom: 24 } : { bottom: showCard ? 300 : 104 }}>
         {gps && (
           <span className="gps-chip">
@@ -424,13 +435,13 @@ export function MapScreen({ embedded }: { embedded?: "fuel" | "charge" } = {}) {
               </span>
             </div>
             <div className="col-2 end">
-              {selected.disc && selected.listPrices?.[fuel] != null && <span className="strike b12">{fmtPrice(selected.listPrices[fuel])} €</span>}
+              {selected.disc && selected.disc.kind !== "saldo" && selected.listPrices?.[fuel] != null && <span className="strike b12">{fmtPrice(selected.listPrices[fuel])} €</span>}
               <span className="price-lg" style={{ color: selLv.color }}>
-                {fmtPrice(selPrice)} €
+                {fmtPrice(paidPrice(selected, fuel) ?? selPrice)} €
               </span>
               <span className="b12" style={{ color: selLv.color }}>
                 {selected.id === cheapestId ? "La más barata" : selLv.label}
-                {selected.disc ? ` · con ${selected.disc.label}` : ""}
+                {selected.disc ? ` · ${selected.disc.label} ${discText(selected.disc)}` : ""}
               </span>
             </div>
           </div>

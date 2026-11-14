@@ -214,14 +214,14 @@ export function availability(evses: Evse[], now = Date.now()): Avail {
 export function availText(a: Avail): { text: string; tone: "green" | "amber" | "red" | "muted" } {
   if (!a.total) return { text: "Sin puntos", tone: "muted" };
   if (a.live) {
-    if (a.free > 0) return { text: `${a.free} de ${a.total} libre${a.total === 1 ? "" : "s"}`, tone: "green" };
+    if (a.free > 0) return { text: `${a.free} de ${a.total} libre${a.total === 1 ? "" : "s"} ahora`, tone: "green" };
     if (a.busy > 0) return { text: a.busy === a.total ? "Ocupado ahora" : `${a.busy} de ${a.total} ocupados`, tone: "amber" };
   }
   if (a.known) {
     const ok = a.total - a.down;
     if (ok === 0) return { text: "Fuera de servicio", tone: "red" };
-    if (a.down > 0) return { text: `${ok} de ${a.total} funcionan`, tone: "amber" };
-    return { text: a.total === 1 ? "Funciona" : `Los ${a.total} funcionan`, tone: "green" };
+    if (a.down > 0) return { text: `${ok} de ${a.total} operativos`, tone: "amber" };
+    return { text: a.total === 1 ? "Operativo" : `Los ${a.total} operativos`, tone: "green" };
   }
   return { text: "Estado sin datos", tone: "muted" };
 }
@@ -672,7 +672,7 @@ export function tariffLines(c: Conn): { label: string; value: string; note: stri
           lines.push({ label: "Tiempo cargando", value: `${euro(p / 60, 3)} €/min`, note });
           break;
         case "FLAT":
-          lines.push({ label: "Por recarga", value: `${euro(p)} €`, note });
+          lines.push({ label: "Cuota fija por sesión", value: `${euro(p)} € por sesión`, note });
           break;
         case "PARKING_TIME":
           lines.push({ label: "Ocupar la plaza sin cargar", value: `${euro(p / 60, 3)} €/min`, note });
@@ -686,7 +686,7 @@ export function tariffLines(c: Conn): { label: string; value: string; note: stri
   if (!lines.length && hasPrice(c)) {
     if (c.e) lines.push({ label: "Energía", value: `${euro(c.e * vatFactor(c), 3)} €/kWh`, note: "" });
     if (c.t) lines.push({ label: "Tiempo cargando", value: `${euro((c.t * vatFactor(c)) / 60, 3)} €/min`, note: "" });
-    if (c.f) lines.push({ label: "Por recarga", value: `${euro(c.f * vatFactor(c))} €`, note: "" });
+    if (c.f) lines.push({ label: "Cuota fija por sesión", value: `${euro(c.f * vatFactor(c))} € por sesión`, note: "" });
   }
   // Primero lo que pagas siempre; luego penalizaciones y reservas
   const order = (l: { label: string }) => (l.label === "Energía" ? 0 : l.label === "Por recarga" || l.label === "Tiempo cargando" ? 1 : 2);

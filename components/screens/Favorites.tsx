@@ -12,7 +12,7 @@ import type { Prices, Station, StationsResponse } from "@/lib/types";
 import { fuelByKey, type FuelKey } from "@/lib/fuels";
 import { fmtPrice, signedCents } from "@/lib/format";
 import { useDiscounts } from "@/lib/discountStore";
-import { applyDiscounts, discountFor } from "@/lib/discounts";
+import { applyDiscounts, discountFor, discOff, discText } from "@/lib/discounts";
 
 const PLACE_RADII = [2, 5, 10, 20];
 
@@ -105,7 +105,8 @@ export function Favorites() {
               const it = lookup.data!.items.find((x) => x.station.id === f.id);
               const now = it?.station.prices[fuel];
               const myDisc = it ? discountFor(it.station.brand, discState) : null;
-              const shown = now != null && myDisc ? now - myDisc.cts / 100 : now;
+              const saldo = myDisc?.kind === "saldo";
+              const shown = now != null && myDisc && !saldo ? now - discOff(myDisc, now) : now;
               const before = it?.yesterday?.[fuel];
               const change = now != null && before != null ? now - before : null;
               const changeTxt =
@@ -121,8 +122,8 @@ export function Favorites() {
                       </span>
                     </span>
                     <span className="col-0 end">
-                      <span className={`price-sm${myDisc ? " green" : ""}`}>{shown != null ? `${fmtPrice(shown)} €` : "—"}</span>
-                      {myDisc && now != null && <span className="tag disc">{myDisc.label} · antes {fmtPrice(now)}</span>}
+                      <span className={`price-sm${myDisc && !saldo ? " green" : ""}`}>{shown != null ? `${fmtPrice(shown)} €` : "—"}</span>
+                      {myDisc && now != null && <span className="tag disc">{saldo ? `${myDisc.label} · ${discText(myDisc)}` : `${myDisc.label} · antes ${fmtPrice(now)}`}</span>}
                     </span>
                   </Link>
                   <button

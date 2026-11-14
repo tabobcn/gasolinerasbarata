@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { Place } from "@/lib/types";
+import { PROVINCES } from "@/lib/seo";
 
 /**
  * Buscador de sitios y direcciones con Photon (OpenStreetMap, gratuito).
@@ -42,7 +43,10 @@ export async function GET(req: NextRequest) {
       const street = [p.street, p.housenumber].filter(Boolean).join(" ");
       const label = p.name || street || p.city || "";
       if (!label) continue;
-      const detail = [p.name && street ? street : null, p.city && p.city !== label ? p.city : null, p.county ?? p.state]
+      // La provincia sale del código postal (sus dos primeras cifras); Photon da la comarca, que no ayuda
+      const prov = p.postcode && /^\d{5}$/.test(p.postcode) ? PROVINCES.find((x) => x.id === p.postcode!.slice(0, 2))?.name : undefined;
+      const region = prov && prov !== label && prov !== p.city ? prov : !prov ? (p.county ?? p.state) : undefined;
+      const detail = [p.name && street ? street : null, p.city && p.city !== label ? p.city : null, region]
         .filter(Boolean)
         .join(", ");
       const key = `${label}|${detail}`;

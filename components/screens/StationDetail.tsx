@@ -15,7 +15,8 @@ import { useNavigate } from "../NavigateProvider";
 import { BrandTile, EmptyState, Skeleton } from "../ui";
 import { Icon } from "../Icon";
 import { useDiscounts } from "@/lib/discountStore";
-import { discountFor, PROGRAMS } from "@/lib/discounts";
+import { DiscountControls } from "../DiscountControls";
+import { discOff, discountFor, discText, isLive, PROGRAMS, type DiscountItem, type DiscountState } from "@/lib/discounts";
 import { activeOffers, fmtDay } from "@/lib/offers";
 import { knownBrand } from "@/lib/brands";
 import { ShareButton } from "../ShareButton";
@@ -34,13 +35,19 @@ export function StationDetail({ id, m }: { id: string; m: string | null }) {
   useEffect(() => {
     if (st) recordVisit({ id: st.id, m: st.munId, name: st.name, brand: st.brand, how: "ficha" });
   }, [st?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [discState] = useDiscounts();
-  const myDisc = st ? discountFor(st.brand, discState) : null;
+  const [discState, setDiscState] = useDiscounts();
+  const myDisc = st ? discountFor(st.brand, discState, st.id) : null;
+  // Descuento solo en esta gasolinera (acuerdo de autónomo, tarjeta de la estación…)
+  const own: DiscountItem = discState.stations?.[id] ?? { on: false, cts: 5 };
+  const setOwn = (patch: Partial<DiscountItem>) =>
+    setDiscState((s: DiscountState) => ({ ...s, enabled: true, stations: { ...(s.stations ?? {}), [id]: { ...own, name: st?.name, ...patch } } }));
   const brandK = st ? knownBrand(st.brand) : null;
   const offers = brandK ? activeOffers().filter((o) => PROGRAMS.find((p) => p.id === o.program)?.brands.includes(brandK)) : [];
   const histFuel = st && st.prices[fuel] == null ? (FUELS.find((f) => st.prices[f.key] != null)?.key ?? fuel) : fuel;
   const hist = useJSON<HistoryResponse>(st ? `/api/stations/${encodeURIComponent(id)}/history?m=${encodeURIComponent(st.munId)}&fuel=${histFuel}&days=14` : null);
 
+  // Rebaja en el surtidor (un descuento en saldo no baja lo que se paga)
+  const direct = st && myDisc && myDisc.kind !== "saldo" && st.prices[histFuel] != null ? discOff(myDisc, st.prices[histFuel]!) : 0;
   const dist = st && loc ? haversineKm(loc.lat, loc.lon, st.lat, st.lon) : undefined;
   const isFav = favs.some((f) => f.id === id);
   const status = st ? openStatus(st.hours, st.provId) : null;
@@ -89,7 +96,10 @@ export function StationDetail({ id, m }: { id: string; m: string | null }) {
     });
     const avgAll = prices.reduce((a, b) => a + b, 0) / prices.length;
     const ranked = [...byDay.entries()].map(([d, v]) => [d, v.reduce((a, b) => a + b, 0) / v.length] as const).sort((a, b) => a[1] - b[1]);
-    const cheapDay = ranked[0] && avgAll - ranked[0][1] >= 0.005 ? WEEKDAYS[ranked[0][0]] : null;
+    // Solo se dice si se repite las dos semanas y la diferencia se nota (1,5 cts o más)
+    const top = ranked[0];
+    const topVals = top ? (byDay.get(top[0]) ?? []) : [];
+    const cheapDay = top && Math.abs(diff) < 0.03 && topVals.length >= 2 && avgAll - top[1] >= 0.015 && topVals.every((v) => v <= avgAll - 0.01) ? WEEKDAYS[top[0]] : null;
     return { points, line, area, axis, diff, cheapDay, stable: max - min < 0.005 };
   }, [hist.data]);
 
@@ -179,10 +189,10 @@ export function StationDetail({ id, m }: { id: string; m: string | null }) {
                         {change}
                       </span>
                     )}
-                    {myDisc ? (
+                    {myDisc && myDisc.kind !== "saldo" ? (
                       <span className="col-0 end price-md">
                         <span className="strike b12">{fmtPrice(p)} €</span>
-                        <span className="green">{fmtPrice(p - myDisc.cts / 100)} €</span>
+                        <span className="green">{fmtPrice(p - discOff(myDisc, p))} €</span>
                       </span>
                     ) : (
                       <span className="price-md">{fmtPrice(p)} €</span>
@@ -198,24 +208,48 @@ export function StationDetail({ id, m }: { id: string; m: string | null }) {
                 <span>
                   Llenar {settings.tank} litros de {fuelByKey(histFuel)?.label.toLowerCase()}
                 </span>
-                <strong>{fmtEuros((st.prices[histFuel]! - (myDisc ? myDisc.cts / 100 : 0)) * settings.tank)} €</strong>
+                <strong>{fmtEuros((st.prices[histFuel]! - direct) * settings.tank)} €</strong>
+              </p>
+            )}
+
+            {st.prices[histFuel] != null && myDisc?.kind === "saldo" && (
+              <p className="muted b13">
+                Pagas {fmtEuros(st.prices[histFuel]! * settings.tank)} € y te quedan <strong className="green">{fmtEuros(discOff(myDisc, st.prices[histFuel]!) * settings.tank)} €</strong> en saldo.
               </p>
             )}
 
             {st.prices[histFuel] != null && (
               <Link
-                href={`/repostajes?nuevo=1&id=${st.id}&m=${st.munId}&nombre=${encodeURIComponent(st.name)}&marca=${encodeURIComponent(st.brand)}&fuel=${histFuel}&precio=${(st.prices[histFuel]! - (myDisc ? myDisc.cts / 100 : 0)).toFixed(3)}`}
+                href={`/repostajes?nuevo=1&id=${st.id}&m=${st.munId}&nombre=${encodeURIComponent(st.name)}&marca=${encodeURIComponent(st.brand)}&fuel=${histFuel}&precio=${(st.prices[histFuel]! - direct).toFixed(3)}`}
                 className="btn soft"
               >
                 <Icon name="plus" size={18} /> Apuntar un repostaje aquí
               </Link>
             )}
 
+            <div className="card tight">
+              <div className="row-12 disc-head">
+                <span className="soft-icon amber" aria-hidden="true">
+                  <Icon name="card" size={20} />
+                </span>
+                <span className="col-2 grow min0">
+                  <span className="b14">Tengo descuento en esta gasolinera</span>
+                  <span className="muted b12">Solo se aplica aquí</span>
+                </span>
+                <button type="button" role="switch" aria-checked={isLive(own)} aria-label="Tengo descuento en esta gasolinera" className={`switch-btn${isLive(own) ? " on" : ""}`} onClick={() => setOwn({ on: !isLive(own) })}>
+                  <span aria-hidden="true" />
+                </button>
+              </div>
+              {isLive(own) && <DiscountControls it={own} onChange={setOwn} />}
+            </div>
+
             {myDisc && (
               <Link href="/descuentos" className="note amber link">
                 <Icon name="card" size={18} />
                 <span className="grow">
-                  Precios con tu {myDisc.label}: −{myDisc.cts} cts/l. El de surtidor aparece tachado.
+                  {myDisc.kind === "saldo"
+                    ? `${myDisc.label}: ${discText(myDisc)}. Pagas el precio del surtidor y te lo devuelven en la tarjeta.`
+                    : `Precios con ${myDisc.label}: ${discText(myDisc)}. El de surtidor aparece tachado.`}
                 </span>
               </Link>
             )}

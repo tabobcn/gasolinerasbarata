@@ -5,6 +5,7 @@ import { fmtEuros, fmtKm, fmtPrice, shortStreet } from "@/lib/format";
 import type { FuelKey } from "@/lib/fuels";
 import { openStatus } from "@/lib/hours";
 import type { Station } from "@/lib/types";
+import { discText, paidPrice } from "@/lib/discounts";
 import { BrandTile } from "./ui";
 
 export function stationHref(s: Pick<Station, "id" | "munId">) {
@@ -16,7 +17,9 @@ export function stationHref(s: Pick<Station, "id" | "munId">) {
  * se compara con la mejor opción: céntimos de más por litro y lo que cuesta llenar el depósito.
  */
 export function StationRow({ s, fuel, tank, bestPrice }: { s: Station; fuel: FuelKey; tank: number; bestPrice: number | null }) {
-  const p = s.prices[fuel];
+  const p = s.prices[fuel]; // precio final (con descuentos), con el que se ordena
+  const paid = paidPrice(s, fuel); // lo que se paga en el surtidor
+  const saldo = s.disc?.kind === "saldo";
   const st = openStatus(s.hours, s.provId);
   const diff = p != null && bestPrice != null ? p - bestPrice : null;
   return (
@@ -36,15 +39,15 @@ export function StationRow({ s, fuel, tank, bestPrice }: { s: Station; fuel: Fue
         </span>
         {s.disc && s.listPrices?.[fuel] != null && (
           <span className="tag disc fit" title={`Precio de surtidor ${fmtPrice(s.listPrices[fuel])} €`}>
-            {s.disc.label} · antes {fmtPrice(s.listPrices[fuel])}
+            {saldo ? `${s.disc.label} · ${discText(s.disc)}` : `${s.disc.label} · antes ${fmtPrice(s.listPrices[fuel])}`}
           </span>
         )}
       </span>
       <span className="col-4 end">
-        <span className="price-sm">{fmtPrice(p)} €</span>
+        <span className="price-sm">{fmtPrice(paid)} €</span>
         {p != null && (
           <span className="muted xs nowrap">
-            {diff != null && diff >= 0.0005 ? `+${String(Math.round(diff * 1000) / 10).replace(".", ",")} cts · ` : ""}Llenar {fmtEuros(p * tank)} €
+            {diff != null && diff >= 0.0005 ? `+${String(Math.round(diff * 1000) / 10).replace(".", ",")} cts · ` : ""}Llenar {fmtEuros((paid ?? p) * tank)} €
           </span>
         )}
       </span>

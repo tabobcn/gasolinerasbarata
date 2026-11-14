@@ -24,7 +24,7 @@ import { fmtCents, fmtEuros, fmtKm, fmtPrice, madridDate, timeAgo } from "@/lib/
 import { fuelByKey } from "@/lib/fuels";
 import { openStatus } from "@/lib/hours";
 import { useDiscounts } from "@/lib/discountStore";
-import { applyDiscounts } from "@/lib/discounts";
+import { applyDiscounts, discText, paidPrice } from "@/lib/discounts";
 import { DiscountToggle } from "../DiscountToggle";
 
 const RADII = [2, 5, 10, 20];
@@ -70,6 +70,8 @@ export function Home() {
   const place = loc?.label ?? data?.stations[0]?.mun ?? (loc ? "Tu zona" : "¿Dónde estás?");
   const best = view?.best;
   const bestPrice = best ? best.station.prices[fuel]! : null;
+  const bestSaldo = best?.station.disc?.kind === "saldo";
+  const bestPaid = best ? (paidPrice(best.station, fuel) ?? bestPrice) : null; // lo que se paga en el surtidor
   const isFav = best ? favs.some((f) => f.id === best.station.id) : false;
   const goTo = useNavigate();
   const carName = settings.carName?.trim();
@@ -190,17 +192,17 @@ export function Home() {
             </Link>
             <div className="row-between end">
               <span className="col-2">
-                {best.station.disc && best.station.listPrices?.[fuel] != null && (
+                {best.station.disc && !bestSaldo && best.station.listPrices?.[fuel] != null && (
                   <span className="strike b15">{fmtPrice(best.station.listPrices[fuel])} €</span>
                 )}
                 <span className="big-price green">
-                  <span className="num">{fmtPrice(bestPrice)}</span>
+                  <span className="num">{fmtPrice(bestPaid)}</span>
                   <span className="unit">€/l</span>
                 </span>
               </span>
               {best.station.disc ? (
                 <span className="pill amber">
-                  Con {best.station.disc.label} −{best.station.disc.cts} cts
+                  Con {best.station.disc.label} {discText(best.station.disc)}
                 </span>
               ) : best.avg - bestPrice >= 0.005 ? (
                 <span className="pill green">
@@ -216,11 +218,16 @@ export function Home() {
                 <span>
                   Llenar {settings.tank} litros{carName ? ` · ${carName}` : ""}
                 </span>
-                <strong>{fmtEuros(bestPrice * settings.tank)} €</strong>
+                <strong>{fmtEuros(bestPaid! * settings.tank)} €</strong>
               </span>
+              {bestSaldo && bestPaid! > bestPrice && (
+                <span className="muted xs block">
+                  Pagas {fmtEuros(bestPaid! * settings.tank)} € y te quedan <strong className="green">{fmtEuros((bestPaid! - bestPrice) * settings.tank)} €</strong> en saldo
+                </span>
+              )}
               {best.savings >= 0.1 ? (
                 <span className="muted xs block">
-                  Ahorras <strong className="green">{fmtEuros(best.savings)} €</strong> frente al precio medio de tu zona ({fmtPrice(best.avg)} €/l)
+                  Ahorras <strong className="green">{fmtEuros(best.savings)} €</strong> frente al precio medio de tu zona ({fmtPrice(best.avg)} €/l){bestSaldo ? ", contando el saldo" : ""}
                 </span>
               ) : (
                 <span className="muted xs block">La más barata de tu zona</span>

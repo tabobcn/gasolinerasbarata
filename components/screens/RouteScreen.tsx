@@ -161,7 +161,7 @@ export function RouteScreen() {
                   <span className="col-2 grow min0 left">
                     <span className="b17 ellipsis">{best.station.name}</span>
                     <span className="muted sm">
-                      Km {best.kmAlong} · desvío +{best.detourMin} min{best.station.disc ? ` · con ${best.station.disc.label}` : ""}
+                      Km {best.kmAlong} · desvío +{best.detourMin} min{best.station.disc ? ` · con ${best.station.disc.label}${best.station.disc.kind === "saldo" ? " (en saldo)" : ""}` : ""}
                     </span>
                   </span>
                   <span className="price-lg green">{fmtPrice(best.station.prices[fuel])} €</span>
@@ -182,7 +182,7 @@ export function RouteScreen() {
                   <span className="col-2 grow min0 left">
                     <span className="b15 ellipsis">{s.station.name}</span>
                     <span className="muted sm ellipsis">
-                      Km {s.kmAlong} · desvío +{s.detourMin} min{s.station.disc ? ` · con ${s.station.disc.label}` : ""}{s.netSavings > 0 ? ` · ahorras ${fmtEuros(s.netSavings)} €` : ""}
+                      Km {s.kmAlong} · desvío +{s.detourMin} min{s.station.disc ? ` · con ${s.station.disc.label}${s.station.disc.kind === "saldo" ? " (en saldo)" : ""}` : ""}{s.netSavings > 0 ? ` · ahorras ${fmtEuros(s.netSavings)} €` : ""}
                     </span>
                   </span>
                   <span className="price-sm">{fmtPrice(s.station.prices[fuel])} €</span>

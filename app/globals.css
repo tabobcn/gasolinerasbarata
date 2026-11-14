@@ -2068,3 +2068,14 @@ img.side-logo { background: none; border-radius: 0; }
 .rf-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 12px; background: var(--line); }
 .rf-tabs button { all: unset; cursor: pointer; text-align: center; height: 34px; line-height: 34px; border-radius: 9px; font-size: 13px; font-weight: 800; color: var(--ink-2); }
 .rf-tabs button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(14, 23, 38, 0.12); }
+
+/* ===== Tanda 2b: favoritas y leyenda en el mapa, tipo de descuento ===== */
+.pin-pill { position: relative; }
+.pin-star { position: absolute; top: -8px; right: -6px; width: 18px; height: 18px; border-radius: 9px; background: #fff; color: #E0A100; font-size: 12px; line-height: 18px; text-align: center; box-shadow: 0 1px 4px rgba(14, 23, 38, 0.25); }
+.pin-dot.fav { box-shadow: 0 0 0 3px #F2B705, 0 1px 4px rgba(14, 23, 38, 0.3); }
+.map-legend { position: absolute; left: 12px; z-index: 4; display: flex; gap: 10px; padding: 6px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.94); box-shadow: 0 2px 8px rgba(14, 23, 38, 0.15); font-size: 11px; font-weight: 700; color: var(--ink-2); }
+.map-legend span { display: flex; align-items: center; gap: 4px; }
+.map-legend i { width: 8px; height: 8px; border-radius: 4px; display: block; }
+.map-screen.embedded .map-legend { bottom: 12px; }
+.disc-kind { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 0 0 12px; }
+.disc-kind .opt { height: 36px; font-size: 12px; padding: 0 4px; }

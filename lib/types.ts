@@ -20,7 +20,8 @@ export type Station = {
   dist?: number; // km desde el punto consultado (línea recta)
   /** Si se aplica un descuento del usuario: precios de surtidor originales y qué descuento */
   listPrices?: Prices;
-  disc?: { label: string; cts: number };
+  /** `cts` es el valor en la unidad indicada (céntimos por litro o %). "saldo": no baja el precio que pagas, te lo devuelven en la tarjeta */
+  disc?: { label: string; cts: number; unit?: "cts" | "pct"; kind?: "directo" | "saldo" };
 };
 
 export type StationsResponse = {

@@ -7,7 +7,8 @@ import { BrandTile, Sheet } from "../ui";
 import { useLocation } from "../LocationProvider";
 import { stationHref } from "../StationRow";
 import { discountsStore, useDiscounts } from "@/lib/discountStore";
-import { allPrograms, applyDiscount, customId, discountFor, isLive, type DiscountState } from "@/lib/discounts";
+import { allPrograms, applyDiscount, customId, discountFor, discText, isLive, type DiscountItem, type DiscountState } from "@/lib/discounts";
+import { DiscountControls } from "../DiscountControls";
 import { activeOffers, fmtDay } from "@/lib/offers";
 import { knownBrandList } from "@/lib/brands";
 import { useSettings } from "@/lib/store";
@@ -29,10 +30,17 @@ export function Discounts() {
   const offers = activeOffers();
 
   // Un cambio hecho a mano quita la fecha de fin (solo la llevan los descuentos activados desde una oferta)
-  const setItem = (id: string, patch: Partial<{ on: boolean; cts: number; until: string }>) =>
+  const setItem = (id: string, patch: Partial<DiscountItem>) =>
     setD((s: DiscountState) => {
       const cur = s.items[id] ?? { on: false, cts: 5 };
-      return { ...s, items: { ...s.items, [id]: { on: cur.on, cts: cur.cts, ...patch } } };
+      return { ...s, items: { ...s.items, [id]: { on: cur.on, cts: cur.cts, unit: cur.unit, kind: cur.kind, ...patch } } };
+    });
+  const mine = Object.entries(d.stations ?? {});
+  const dropStation = (id: string) =>
+    setD((s: DiscountState) => {
+      const stations = { ...(s.stations ?? {}) };
+      delete stations[id];
+      return { ...s, stations };
     });
 
   // Ejemplo real: la gasolinera más cercana con alguno de tus descuentos
@@ -40,7 +48,7 @@ export function Discounts() {
   const example = useMemo(() => {
     if (!data) return null;
     const on = { ...d, enabled: true };
-    const s = data.stations.find((x) => x.prices[settings.fuel] != null && discountFor(x.brand, on));
+    const s = data.stations.find((x) => x.prices[settings.fuel] != null && discountFor(x.brand, on, x.id));
     return s ? applyDiscount(s, on) : null;
   }, [data, d, settings.fuel]);
 
@@ -81,20 +89,7 @@ export function Discounts() {
                     <span aria-hidden="true" />
                   </button>
                 </div>
-                {isLive(it) && (
-                  <div className="disc-amount">
-                    <span className="b13">Descuento</span>
-                    <span className="row-8">
-                      <button type="button" aria-label="Un céntimo menos" onClick={() => setItem(p.id, { cts: Math.max(1, it.cts - 1) })}>
-                        −
-                      </button>
-                      <span className="disc-val">{cts(it.cts)}</span>
-                      <button type="button" aria-label="Un céntimo más" onClick={() => setItem(p.id, { cts: Math.min(60, it.cts + 1) })}>
-                        +
-                      </button>
-                    </span>
-                  </div>
-                )}
+                {isLive(it) && <DiscountControls it={it} onChange={(patch) => setItem(p.id, patch)} />}
                 {isCustom && (
                   <button
                     type="button"
@@ -117,6 +112,24 @@ export function Discounts() {
             <Icon name="plus" size={18} stroke={2.6} /> Añadir otro descuento
           </button>
         </section>
+
+        {mine.length > 0 && (
+          <section className="card stack-10">
+            <h2 className="eyebrow">SOLO EN UNA GASOLINERA</h2>
+            {mine.map(([id, it]) => (
+              <div key={id} className="row-12">
+                <span className="col-2 grow min0">
+                  <span className="b14 ellipsis">{it.name ?? "Gasolinera"}</span>
+                  <span className="muted b12">{isLive(it) ? discText({ label: "", ...it }) : "Desactivado"}</span>
+                </span>
+                <button type="button" className="link-btn danger" onClick={() => dropStation(id)}>
+                  Quitar
+                </button>
+              </div>
+            ))}
+            <span className="muted b12">Se ponen y se cambian desde la ficha de cada gasolinera.</span>
+          </section>
+        )}
 
         <section className="card stack-12">
           <div className="row-between baseline">
@@ -144,7 +157,7 @@ export function Discounts() {
                       key={t.cts}
                       type="button"
                       className="btn soft small"
-                      onClick={() => (setD((x: DiscountState) => ({ ...x, enabled: true })), setItem(o.program, { on: true, cts: t.cts, until: o.until }))}
+                      onClick={() => (setD((x: DiscountState) => ({ ...x, enabled: true })), setItem(o.program, { on: true, cts: t.cts, until: o.until, unit: "cts", kind: o.kind ?? "directo" }))}
                     >
                       Activar {cts(t.cts)}
                       {t.label ? ` · ${t.label}` : ""}
@@ -169,11 +182,17 @@ export function Discounts() {
             <span className="eyebrow green">ASÍ LO VERÁS · {fuelByKey(settings.fuel)?.label.toUpperCase()}</span>
             <span className="row-8 wrap baseline">
               <span className="b14">{example.name}</span>
-              <span className="strike b14">{fmtPrice(example.listPrices[settings.fuel])} €</span>
-              <span className="price-sm green">{fmtPrice(example.prices[settings.fuel])} €</span>
+              {example.disc.kind === "saldo" ? (
+                <span className="price-sm">{fmtPrice(example.listPrices[settings.fuel])} €</span>
+              ) : (
+                <>
+                  <span className="strike b14">{fmtPrice(example.listPrices[settings.fuel])} €</span>
+                  <span className="price-sm green">{fmtPrice(example.prices[settings.fuel])} €</span>
+                </>
+              )}
             </span>
             <span className="b12 green-dark">
-              Con tu {example.disc.label} −{cts(example.disc.cts)} · la ponemos primera si sale más barata
+              Con tu {example.disc.label} {discText(example.disc)} · la ponemos primera si sale más barata
             </span>
           </Link>
         )}
