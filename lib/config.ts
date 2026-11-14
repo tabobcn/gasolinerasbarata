@@ -18,7 +18,7 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.repost
 export const CONTACT_EMAIL = "hola@repostaycarga.es";
 
 /** Nombre del responsable que se enseña en la página de privacidad. Vacío = "el autor del proyecto". */
-export const OWNER_NAME = "";
+export const OWNER_NAME = "Carlos Taboada";
 
 /** Enlace para escribir al contacto con el asunto ya puesto */
 export const contactHref = (subject: string, body = "") =>
