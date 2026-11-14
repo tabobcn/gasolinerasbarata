@@ -52,3 +52,6 @@ AS $function$
   from jsonb_array_elements(coalesce(p_connectors, '[]'::jsonb)) c
   left join ev_tariffs t on t.connector_id = c->>'id';
 $function$;
+
+-- La ruta de cargadores lee con otra función (chargers_in_boxes): se le aplicó el mismo cambio el 14-11-2026
+-- (migración "precio_de_dia_en_ruta"): 'e', ev_energy_price(t.elements, (c->>'kw')::numeric, t.energy_price)
