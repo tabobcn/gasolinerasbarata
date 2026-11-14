@@ -8,6 +8,7 @@ import { BottomNav } from "../ui";
 import { CAR_TYPES } from "../CarForm";
 import { knownBrandList, OTHER_BRANDS } from "@/lib/brands";
 import { useSettings, type NavApp } from "@/lib/store";
+import { CONTACT_EMAIL, contactHref } from "@/lib/config";
 
 const RADII = [2, 5, 10, 20];
 const NAVS: { id: NavApp | null; label: string }[] = [
@@ -133,6 +134,14 @@ export function SettingsScreen() {
         </section>
 
         <section className="card set-list">
+          <a href={contactHref("Reposta y Carga: consulta")} className="set-link">
+            <Icon name="share" size={20} />
+            <span className="col-2 grow min0">
+              <span className="b15">Contacto</span>
+              <span className="muted b12 ellipsis">Dudas, ideas o un dato equivocado · {CONTACT_EMAIL}</span>
+            </span>
+            <Icon name="chevronRight" size={18} color="#5B6675" />
+          </a>
           {LINKS.map((l) => (
             <Link key={l.href} href={l.href} className="set-link">
               <Icon name={l.icon} size={20} />

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BottomNav } from "@/components/ui";
-import { APP_NAME, CONTACT_EMAIL, SITE_URL } from "@/lib/config";
+import { APP_NAME, CONTACT_EMAIL, OWNER_NAME, SITE_URL } from "@/lib/config";
 
 export const metadata: Metadata = {
-  title: "Fuentes de los datos y privacidad",
+  title: "Fuentes de los datos, privacidad y aviso legal",
   description: `De dónde salen los precios de ${APP_NAME}, qué se guarda en tu móvil y qué no guardamos nosotros.`,
   alternates: { canonical: `${SITE_URL}/privacidad` },
 };
@@ -102,6 +102,70 @@ export default function Page() {
             <li>El dibujo del mapa lo descarga tu navegador directamente de OpenFreeMap, que ve tu IP y la zona que miras.</li>
             <li>Al tocar «Ir» se abre Google Maps o Waze con el destino. A partir de ahí se aplican sus condiciones.</li>
           </ul>
+        </section>
+
+        <section className="stack-8" aria-labelledby="almacen">
+          <h2 className="h2" id="almacen">
+            Cookies y almacenamiento
+          </h2>
+          <p className="b15">
+            No usamos cookies ni rastreadores de publicidad. Lo que se guarda en tu navegador (lo descrito en «Qué se queda en tu móvil») es solo lo necesario
+            para que la app funcione como tú la has configurado, y por eso no pide un aviso de cookies.
+          </p>
+        </section>
+
+        <section className="stack-8" aria-labelledby="responsable">
+          <h2 className="h2" id="responsable">
+            Responsable y base legal
+          </h2>
+          <p className="b15">
+            El responsable del tratamiento es {OWNER_NAME || "el autor del proyecto"}, un particular que mantiene {APP_NAME} sin ánimo de lucro. Contacto:{" "}
+            <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+          </p>
+          <ul className="legal-list">
+            <li>
+              <strong>Enseñarte lo que pides</strong> (ubicación aproximada, búsquedas, rutas) y <strong>mantener la web segura</strong> (registros técnicos y
+              estadísticas anónimas): interés legítimo en prestar el servicio que solicitas y en que funcione bien.
+            </li>
+            <li>
+              <strong>Tu ubicación exacta</strong>: solo si das permiso en el navegador. Puedes quitarlo cuando quieras y buscar un sitio a mano.
+            </li>
+            <li>
+              <strong>Avisos con la app cerrada</strong>: tu consentimiento, que das al activarlos y retiras al desactivarlos.
+            </li>
+            <li>
+              <strong>Si nos escribes</strong>: usamos tu correo solo para contestarte.
+            </li>
+          </ul>
+        </section>
+
+        <section className="stack-8" aria-labelledby="plazos">
+          <h2 className="h2" id="plazos">
+            Cuánto tiempo y quién más interviene
+          </h2>
+          <ul className="legal-list">
+            <li>Los datos de los avisos se borran al desactivarlos y, en todo caso, a los 90 días sin abrir la app.</li>
+            <li>Los registros técnicos los conserva Vercel el tiempo que marca su servicio y se eliminan solos.</li>
+            <li>Los correos que nos envíes se guardan mientras dure la consulta y se borran después.</li>
+            <li>
+              Proveedores que tratan datos por nuestra cuenta: Vercel (alojamiento y estadísticas; empresa de Estados Unidos, con las garantías de
+              transferencia internacional que prevé el RGPD), Supabase (base de datos de los avisos, en la Unión Europea) y DonDominio (correo, en España).
+            </li>
+            <li>No vendemos ni cedemos datos a nadie, no hacemos perfiles y no hay decisiones automatizadas sobre ti.</li>
+          </ul>
+        </section>
+
+        <section className="stack-8" aria-labelledby="derechos">
+          <h2 className="h2" id="derechos">
+            Tus derechos
+          </h2>
+          <p className="b15">
+            Puedes pedir acceso a tus datos, que se corrijan o se borren, que se limite su uso, oponerte a él o llevártelos (portabilidad), escribiendo a{" "}
+            <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. Contestamos en un mes como máximo. Como no hay registro, casi todo lo tuyo está en tu
+            móvil y lo borras tú; para los avisos basta con desactivarlos. Si crees que no hemos atendido bien tu petición, puedes reclamar ante la Agencia
+            Española de Protección de Datos (aepd.es).
+          </p>
+          <p className="b15">La app no está dirigida a menores de 14 años.</p>
         </section>
 
         <section className="stack-8" aria-labelledby="contacto">

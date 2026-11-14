@@ -14,5 +14,12 @@ export const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_KEY || "sb_publisha
 /** Dirección pública de la web (para Google: sitemap, enlaces canónicos). Cámbiala si pones dominio propio. */
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.repostaycarga.es").replace(/\/$/, "");
 
-/** Correo de contacto que se enseña en la página "Fuentes y privacidad" */
-export const CONTACT_EMAIL = "tabobcn@gmail.com";
+/** Correo de contacto público (privacidad, Ajustes y avisos de datos equivocados) */
+export const CONTACT_EMAIL = "hola@repostaycarga.es";
+
+/** Nombre del responsable que se enseña en la página de privacidad. Vacío = "el autor del proyecto". */
+export const OWNER_NAME = "";
+
+/** Enlace para escribir al contacto con el asunto ya puesto */
+export const contactHref = (subject: string, body = "") =>
+  `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}${body ? `&body=${encodeURIComponent(body)}` : ""}`;

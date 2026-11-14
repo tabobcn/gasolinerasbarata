@@ -13,6 +13,7 @@ import { useSettings } from "@/lib/store";
 import { getJSON, useJSON } from "@/lib/useJSON";
 import { haversineKm } from "@/lib/geo";
 import { etaMin, fmtKm, fmtMinutes } from "@/lib/format";
+import { contactHref } from "@/lib/config";
 import {
   availability,
   availText,
@@ -303,6 +304,8 @@ export function ChargerDetail({ id, group }: { id: string; group?: string | null
         </section>
 
         <p className="source">
+          <a href={contactHref(`Precio equivocado: ${chargerName(ch)}`, `Cargador: ${chargerName(ch)} (${ch.id})\nDirección: ${ch.address ?? ""}\n\nEl precio que he visto en la app del operador es: `)}>¿El precio no coincide con el del operador? Avísanos</a>
+          {" · "}
           Fuente: Red Eléctrica de España (REVE, Registro de Vehículo Eléctrico). Datos del operador actualizados el {fmtDateTime(ch.updated)}.{" "}
           {datesText(data?.updated, data?.prices)}
           {lastCheck ? ` Disponibilidad consultada el ${fmtDateTime(lastCheck)}.` : ""} Los precios con IVA se calculan a partir de la tarifa sin IVA y el IVA que

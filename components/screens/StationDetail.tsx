@@ -20,6 +20,7 @@ import { discOff, discountFor, discText, isLive, PROGRAMS, type DiscountItem, ty
 import { activeOffers, fmtDay } from "@/lib/offers";
 import { knownBrand } from "@/lib/brands";
 import { ShareButton } from "../ShareButton";
+import { contactHref } from "@/lib/config";
 
 const WEEKDAYS = ["domingos", "lunes", "martes", "miércoles", "jueves", "viernes", "sábados"];
 
@@ -329,7 +330,10 @@ export function StationDetail({ id, m, initial }: { id: string; m: string | null
               </Link>
             </div>
 
-            <p className="source">{timeAgo(data!.updatedAt)} · Fuente: Ministerio (Geoportal de Gasolineras)</p>
+            <p className="source">
+              {timeAgo(data!.updatedAt)} · Fuente: Ministerio (Geoportal de Gasolineras) ·{" "}
+              <a href={contactHref(`Precio equivocado: ${st.name}`, `Gasolinera: ${st.name} (${st.id})\nDirección: ${st.address}\n\nEl precio que he visto es: `)}>¿Algún precio no coincide? Avísanos</a>
+            </p>
           </>
         )}
       </div>
