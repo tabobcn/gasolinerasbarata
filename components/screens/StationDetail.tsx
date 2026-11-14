@@ -23,14 +23,17 @@ import { ShareButton } from "../ShareButton";
 
 const WEEKDAYS = ["domingos", "lunes", "martes", "miércoles", "jueves", "viernes", "sábados"];
 
-export function StationDetail({ id, m }: { id: string; m: string | null }) {
+/** `initial`: datos que ya trae el servidor, para que la ficha salga escrita en la página (y Google la lea) sin esperar a la app */
+export function StationDetail({ id, m, initial }: { id: string; m: string | null; initial?: StationDetailResponse | null }) {
   const router = useRouter();
   const { loc } = useLocation();
   const [settings] = useSettings();
   const [favs] = useFavorites();
   const goTo = useNavigate();
   const fuel = settings.fuel;
-  const { data, error, loading, reload } = useJSON<StationDetailResponse>(m ? `/api/stations/${encodeURIComponent(id)}?m=${encodeURIComponent(m)}` : null);
+  const live = useJSON<StationDetailResponse>(m ? `/api/stations/${encodeURIComponent(id)}?m=${encodeURIComponent(m)}` : null);
+  const { error, loading, reload } = live;
+  const data = live.data ?? initial ?? null;
   const st = data?.station;
   useEffect(() => {
     if (st) recordVisit({ id: st.id, m: st.munId, name: st.name, brand: st.brand, how: "ficha" });

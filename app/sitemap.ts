@@ -5,7 +5,7 @@ import { areasOf, chargerGrid, countNear } from "@/lib/seoChargers";
 
 export const revalidate = 86400; // una vez al día
 
-/** Mapa del sitio para Google: páginas de la app, provincias y municipios con gasolinera o con cargadores */
+/** Mapa del sitio para Google: páginas de la app, provincias, municipios con gasolinera o con cargadores y la ficha de cada gasolinera */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const out: MetadataRoute.Sitemap = [
@@ -28,6 +28,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     for (const r of batch) {
       if (!r) continue;
       const muns = municipalitiesOf(r.d.stations);
+      // Ficha de cada gasolinera
+      for (const st of r.d.stations) out.push({ url: `${SITE_URL}/gasolinera/${st.id}?m=${st.munId}`, changeFrequency: "daily", priority: 0.4, lastModified: now });
       const areas = grid ? areasOf(muns, r.d.stations) : null;
       for (const m of muns) {
         out.push({ url: `${SITE_URL}/gasolineras/${provinceSlug(r.p)}/${m.slug}`, changeFrequency: "hourly", priority: 0.6, lastModified: now });

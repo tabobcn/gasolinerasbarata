@@ -2092,3 +2092,6 @@ img.side-logo { background: none; border-radius: 0; }
 .pill.fit { align-self: flex-start; }
 .tag.best { background: var(--green-bg); color: var(--green); }
 .row-card.sel { box-shadow: inset 0 0 0 2px var(--green); }
+
+/* ===== Tanda 5: migas al pie de la ficha de gasolinera ===== */
+.station-crumbs { margin-top: -108px; padding-bottom: calc(124px + var(--safe-b)); position: relative; }
