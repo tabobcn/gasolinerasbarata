@@ -22,6 +22,8 @@ import { knownBrand } from "@/lib/brands";
 import { ShareButton } from "../ShareButton";
 import { contactHref } from "@/lib/config";
 
+/** Días de historial de precios que se enseñan en la ficha (el servidor admite hasta 30) */
+const HIST_DAYS = 30;
 const WEEKDAYS = ["domingos", "lunes", "martes", "miércoles", "jueves", "viernes", "sábados"];
 
 /** `initial`: datos que ya trae el servidor, para que la ficha salga escrita en la página (y Google la lea) sin esperar a la app */
@@ -48,7 +50,7 @@ export function StationDetail({ id, m, initial }: { id: string; m: string | null
   const brandK = st ? knownBrand(st.brand) : null;
   const offers = brandK ? activeOffers().filter((o) => PROGRAMS.find((p) => p.id === o.program)?.brands.includes(brandK)) : [];
   const histFuel = st && st.prices[fuel] == null ? (FUELS.find((f) => st.prices[f.key] != null)?.key ?? fuel) : fuel;
-  const hist = useJSON<HistoryResponse>(st ? `/api/stations/${encodeURIComponent(id)}/history?m=${encodeURIComponent(st.munId)}&fuel=${histFuel}&days=14` : null);
+  const hist = useJSON<HistoryResponse>(st ? `/api/stations/${encodeURIComponent(id)}/history?m=${encodeURIComponent(st.munId)}&fuel=${histFuel}&days=${HIST_DAYS}` : null);
 
   // Rebaja en el surtidor (un descuento en saldo no baja lo que se paga)
   const direct = st && myDisc && myDisc.kind !== "saldo" && st.prices[histFuel] != null ? discOff(myDisc, st.prices[histFuel]!) : 0;
@@ -100,11 +102,13 @@ export function StationDetail({ id, m, initial }: { id: string; m: string | null
     });
     const avgAll = prices.reduce((a, b) => a + b, 0) / prices.length;
     const ranked = [...byDay.entries()].map(([d, v]) => [d, v.reduce((a, b) => a + b, 0) / v.length] as const).sort((a, b) => a[1] - b[1]);
-    // Solo se dice si se repite las dos semanas y la diferencia se nota (1,5 cts o más)
+    // Solo se dice si se repite al menos tres semanas y la diferencia se nota (1,5 cts o más)
     const top = ranked[0];
     const topVals = top ? (byDay.get(top[0]) ?? []) : [];
-    const cheapDay = top && Math.abs(diff) < 0.03 && topVals.length >= 2 && avgAll - top[1] >= 0.015 && topVals.every((v) => v <= avgAll - 0.01) ? WEEKDAYS[top[0]] : null;
-    return { points, line, area, axis, diff, cheapDay, stable: max - min < 0.005 };
+    const cheapDay = top && Math.abs(diff) < 0.03 && topVals.length >= 3 && avgAll - top[1] >= 0.015 && topVals.every((v) => v <= avgAll - 0.01) ? WEEKDAYS[top[0]] : null;
+    // si el mínimo cae pegado al último día, la etiqueta de hoy va arriba para que no se pisen
+    const minNearEnd = labelled.get(minDot.i) === "min" && lastDot.x - minDot.x < 28;
+    return { points, line, area, axis, diff, minNearEnd, cheapDay, stable: max - min < 0.005 };
   }, [hist.data]);
 
   const toggleFav = () => {
@@ -268,14 +272,14 @@ export function StationDetail({ id, m, initial }: { id: string; m: string | null
 
             <div className="card stack-12">
               <div className="row-between baseline">
-                <h2 className="h3">{fuelByKey(histFuel)?.label} · últimos 14 días</h2>
+                <h2 className="h3">{fuelByKey(histFuel)?.label} · últimos {HIST_DAYS} días</h2>
                 {chart && !chart.stable && (
                   <span className={`b13 ${chart.diff < 0 ? "green" : chart.diff > 0 ? "red" : ""}`}>{signedCents(chart.diff)}</span>
                 )}
               </div>
               {hist.loading && !hist.data && <Skeleton h={72} r={8} />}
               {chart && (
-                <div className="pchart" role="img" aria-label={`Evolución del precio en 14 días: de ${chart.points[0].text} a ${chart.points[chart.points.length - 1].text}`}>
+                <div className={`pchart${chart.points.length > 20 ? " dense" : ""}`} role="img" aria-label={`Evolución del precio en ${HIST_DAYS} días: de ${chart.points[0].text} a ${chart.points[chart.points.length - 1].text}`}>
                   <div className="pchart-plot">
                     <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                       <polygon points={chart.area} className="pchart-area" />
@@ -283,7 +287,7 @@ export function StationDetail({ id, m, initial }: { id: string; m: string | null
                     </svg>
                     {chart.points.map((d) => (
                       <span key={d.i} title={d.title} className={`pchart-dot${d.tag ? ` ${d.tag}` : ""}`} style={{ left: `${d.x}%`, top: `${d.y}%` }}>
-                        {d.tag && <span className={`pchart-label ${d.align}${d.tag === "min" || (d.tag === "last" && d.y > 60) ? " below" : ""}`}>{d.text}</span>}
+                        {d.tag && <span className={`pchart-label ${d.align}${d.tag === "min" || (d.tag === "last" && d.y > 60 && !chart.minNearEnd) ? " below" : ""}`}>{d.text}</span>}
                       </span>
                     ))}
                   </div>
@@ -296,10 +300,12 @@ export function StationDetail({ id, m, initial }: { id: string; m: string | null
               {chart && (
                 <span className="muted b13">
                   {chart.stable
-                    ? "Precio estable en las dos últimas semanas"
+                    ? "Precio estable en el último mes"
                     : chart.cheapDay
-                      ? `Estas dos semanas ha estado más barata los ${chart.cheapDay}`
-                      : "Precio con pocos cambios"}
+                      ? `Este último mes ha estado más barata los ${chart.cheapDay}`
+                      : Math.abs(chart.diff) >= 0.03
+                        ? `Ha ${chart.diff < 0 ? "bajado" : "subido"} ${Math.round(Math.abs(chart.diff) * 100)} céntimos en el último mes`
+                        : "Precio con pocos cambios"}
                 </span>
               )}
               {!hist.loading && !chart && <span className="muted sm">Sin histórico suficiente todavía.</span>}

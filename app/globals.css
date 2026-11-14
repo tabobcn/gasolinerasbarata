@@ -2108,3 +2108,6 @@ img.side-logo { background: none; border-radius: 0; }
 .route-map .maplibregl-ctrl-top-right { top: 0; }
 
 .ev-warn { margin: 0; line-height: 1.4; }
+
+/* Historial de 30 días: con tantos puntos, los de en medio van más pequeños para que no se pisen */
+.pchart.dense .pchart-dot:not(.last):not(.min):not(.max) { width: 6px; height: 6px; margin: -3px 0 0 -3px; box-shadow: 0 0 0 1.5px var(--green); }
