@@ -56,14 +56,20 @@ export type RouteStop = {
   kmAlong: number;
   offRouteKm: number;
   detourMin: number;
-  netSavings: number;
+  netSavings: number; // ahorro al llenar frente a la media de la ruta (solo por precio)
+  seg: number; // tramo de la ruta (0 = el de salida)
+  bestInSeg?: boolean; // la más barata de su tramo
+  bestOverall?: boolean; // la más barata de todo el viaje
 };
+export type RouteSegment = { from: number; to: number }; // en km
 
 export type RouteResponse = {
   distanceKm: number;
   durationMin: number;
   fuel: FuelKey;
   average: number | null;
-  stops: RouteStop[];
+  stops: RouteStop[]; // ordenadas por kilómetro
+  segments: RouteSegment[];
+  line: [number, number][]; // [lon, lat] para dibujar la ruta
   waypoints: { km: number; label: string }[];
 };

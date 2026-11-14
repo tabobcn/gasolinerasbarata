@@ -1,28 +1,30 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { BottomNav, BrandTile, EmptyState, Sheet, Skeleton } from "../ui";
+import { BottomNav, BrandTile, EmptyState, FuelChips, Sheet, Skeleton } from "../ui";
 import { Icon } from "../Icon";
 import { PlaceSearch } from "../PlaceSearch";
 import { useLocation } from "../LocationProvider";
-import { navUrl, useNavigate } from "../NavigateProvider";
-import { useMode, useSettings, useShows } from "@/lib/store";
-import { brandVisible } from "@/lib/brands";
+import { navUrl } from "../NavigateProvider";
+import { RouteMap } from "../RouteMap";
+import { stationHref } from "../StationRow";
+import { recordVisit, useMode, useSettings, useShows } from "@/lib/store";
 import { ChargeRoute } from "../ChargeRoute";
 import { useJSON, r3 } from "@/lib/useJSON";
-import type { Place, RouteResponse } from "@/lib/types";
+import type { Place, RouteResponse, RouteStop } from "@/lib/types";
 import { fuelByKey } from "@/lib/fuels";
 import { fmtEuros, fmtMinutes, fmtPrice } from "@/lib/format";
 import { useDiscounts } from "@/lib/discountStore";
-import { encodeDiscounts } from "@/lib/discounts";
+import { discText, encodeDiscounts, paidPrice } from "@/lib/discounts";
 
 type Pt = { lat: number; lon: number; label: string };
 
 export function RouteScreen() {
   const { loc } = useLocation();
-  const [settings] = useSettings();
-  const goTo = useNavigate();
-  const fuel = settings.fuel;
+  const [settings, setSettings] = useSettings();
+  const fuel = settings.fuels.includes(settings.fuel) ? settings.fuel : (settings.fuels[0] ?? "g95");
+  const [selId, setSelId] = useState<string | null>(null);
   const [from, setFrom] = useState<Pt | null>(null); // null = mi ubicación
   const [to, setTo] = useState<Pt | null>(null);
   const [editing, setEditing] = useState<null | "from" | "to">(null);
@@ -34,7 +36,7 @@ export function RouteScreen() {
   const dParam = encodeDiscounts(discState);
   const url =
     origin && to && mode === "fuel"
-      ? `/api/route?from=${r3(origin.lat)},${r3(origin.lon)}&to=${r3(to.lat)},${r3(to.lon)}&fuel=${fuel}&tank=${settings.tank}${dParam ? `&d=${encodeURIComponent(dParam)}` : ""}`
+      ? `/api/route?from=${r3(origin.lat)},${r3(origin.lon)}&to=${r3(to.lat)},${r3(to.lon)}&fuel=${fuel}&tank=${settings.tank}${dParam ? `&d=${encodeURIComponent(dParam)}` : ""}${settings.hiddenBrands?.length ? `&h=${encodeURIComponent(settings.hiddenBrands.join(","))}` : ""}`
       : null;
   const { data, error, loading } = useJSON<RouteResponse>(url);
 
@@ -45,11 +47,13 @@ export function RouteScreen() {
     setEditing(null);
   };
 
-  const visible = brandVisible(settings.hiddenBrands);
-  const stops = (data?.stops ?? []).filter((s) => visible(s.station.brand)); // sin las marcas ocultas en Ajustes
-  const best = stops[0];
-  const total = data?.distanceKm ?? 1;
-  const marks = stops.slice(0, 4);
+  const stops = data?.stops ?? [];
+  const best = stops.find((s) => s.bestOverall);
+  const sel = stops.find((s) => s.station.id === selId) ?? null;
+  const paid = (s: RouteStop) => paidPrice(s.station, fuel) ?? s.station.prices[fuel]!;
+  const sub = (s: RouteStop) => `Km ${s.kmAlong} · desvío +${s.detourMin} min`;
+  const fill = (s: RouteStop) => `Llenar ${fmtEuros(paid(s) * settings.tank)} €`;
+  const visit = (s: RouteStop) => recordVisit({ id: s.station.id, m: s.station.munId, name: s.station.name, brand: s.station.brand, how: "ir" });
 
   return (
     <div className="screen with-nav">
@@ -68,6 +72,8 @@ export function RouteScreen() {
           </button>
         </div>
         )}
+
+        {mode === "fuel" && settings.fuels.length > 1 && <FuelChips fuels={settings.fuels} value={fuel} onChange={(f) => setSettings((s) => ({ ...s, fuel: f }))} />}
 
         <div className="card stack-12">
           <div className="row-12">
@@ -104,7 +110,7 @@ export function RouteScreen() {
             title={mode === "fuel" ? "Reposta en el camino" : "Carga en el camino"}
             text={
               mode === "fuel"
-                ? "Dinos a dónde vas y te enseñamos las gasolineras de la ruta que más te hacen ahorrar, contando el desvío."
+                ? "Dinos a dónde vas y te enseñamos las gasolineras más baratas de cada tramo del viaje, en un mapa y por kilómetro."
                 : "Dinos a dónde vas y te enseñamos dónde cargar por el camino: los cargadores que le sirven a tu coche y lo que cuesta, contando el desvío."
             }
           >
@@ -127,72 +133,107 @@ export function RouteScreen() {
 
         {mode === "fuel" && data && origin && to && (
           <>
-            <div className="card route-strip" role="img" aria-label={`Recorrido de ${data.distanceKm} km con ${marks.length} paradas recomendadas`}>
-              <div className="strip">
-                <span className="strip-line" />
-                <span className="strip-end start" style={{ left: "0%" }} />
-                <span className="strip-end" style={{ left: "100%" }} />
-                {marks.map((s, i) => (
-                  <span key={s.station.id} className={`strip-stop${i === 0 ? " best" : ""}`} style={{ left: `${Math.min(100, (s.kmAlong / total) * 100)}%` }}>
-                    {i === 0 ? "1" : ""}
-                  </span>
-                ))}
-              </div>
-              <div className="strip-labels">
-                <span>{origin.label.replace(/^Mi ubicación · /, "")}</span>
-                {data.waypoints.map((w) => (
-                  <span key={w.km}>{w.label}</span>
-                ))}
-                <span>{to.label}</span>
-              </div>
-            </div>
-
-            <div className="row-between baseline">
-              <h2 className="h2">Mejores paradas</h2>
-              <span className="muted b13">Por ahorro real</span>
-            </div>
+            {data.line.length > 1 && <RouteMap line={data.line} stops={stops} fuel={fuel} selected={selId} onSelect={setSelId} />}
 
             {!stops.length && <EmptyState icon="pump" title="Sin gasolineras en la ruta" text={`No hemos encontrado ${fuelByKey(fuel)?.label.toLowerCase()} a menos de 2,5 km del recorrido.`} />}
 
             {best && (
-              <div className="card hero stack-12">
-                <button type="button" className="row-12 plain" onClick={() => goTo({ ...best.station, dist: undefined })}>
+              <button type="button" className="card hero stack-12 as-button" onClick={() => setSelId(best.station.id)}>
+                <span className="eyebrow green">LA MÁS BARATA DEL VIAJE</span>
+                <span className="row-12">
                   <BrandTile brand={best.station.brand} size={48} />
                   <span className="col-2 grow min0 left">
                     <span className="b17 ellipsis">{best.station.name}</span>
                     <span className="muted sm">
-                      Km {best.kmAlong} · desvío +{best.detourMin} min{best.station.disc ? ` · con ${best.station.disc.label}${best.station.disc.kind === "saldo" ? " (en saldo)" : ""}` : ""}
+                      {sub(best)} · {fill(best).toLowerCase()}
                     </span>
                   </span>
-                  <span className="price-lg green">{fmtPrice(best.station.prices[fuel])} €</span>
-                </button>
-                <div className="row-between">
-                  <span className="pill green">{best.netSavings > 0 ? `Ahorras ${fmtEuros(best.netSavings)} € netos` : "La mejor opción de la ruta"}</span>
-                  <a className="btn soft small" href={navUrl("maps", best.station, { origin, destination: to })} target="_blank" rel="noopener">
-                    <Icon name="plus" size={16} stroke={2.6} /> Añadir parada
-                  </a>
-                </div>
-              </div>
+                  <span className="price-lg green">{fmtPrice(paid(best))} €</span>
+                </span>
+                {best.netSavings >= 0.1 && (
+                  <span className="pill green fit">
+                    Ahorras {fmtEuros(best.netSavings)} € frente a la media de la ruta
+                  </span>
+                )}
+              </button>
             )}
 
-            <div className="stack-8">
-              {stops.slice(1).map((s) => (
-                <button key={s.station.id} type="button" className="row-card" onClick={() => goTo({ ...s.station, dist: undefined })}>
-                  <BrandTile brand={s.station.brand} size={40} />
-                  <span className="col-2 grow min0 left">
-                    <span className="b15 ellipsis">{s.station.name}</span>
-                    <span className="muted sm ellipsis">
-                      Km {s.kmAlong} · desvío +{s.detourMin} min{s.station.disc ? ` · con ${s.station.disc.label}${s.station.disc.kind === "saldo" ? " (en saldo)" : ""}` : ""}{s.netSavings > 0 ? ` · ahorras ${fmtEuros(s.netSavings)} €` : ""}
-                    </span>
-                  </span>
-                  <span className="price-sm">{fmtPrice(s.station.prices[fuel])} €</span>
-                </button>
-              ))}
-            </div>
-            <p className="source">Ruta calculada con OSRM (OpenStreetMap). Ahorro frente a la media de la ruta llenando {settings.tank} L, descontando el desvío.</p>
+            {data.segments.map((g, i) => {
+              const inSeg = stops.filter((s) => s.seg === i);
+              return (
+                <section key={g.from} className="stack-8" aria-label={`Tramo del kilómetro ${g.from} al ${g.to}`}>
+                  {data.segments.length > 1 && (
+                    <div className="row-between baseline">
+                      <h2 className="h2">
+                        Km {g.from}–{g.to}
+                      </h2>
+                      <span className="muted b13">{i === 0 ? "Salida" : i === data.segments.length - 1 ? "Llegada" : `Tramo ${i + 1}`}</span>
+                    </div>
+                  )}
+                  {!inSeg.length && <span className="muted b13">Sin gasolineras con {fuelByKey(fuel)?.label.toLowerCase()} junto a la ruta en este tramo.</span>}
+                  {inSeg.map((s) => (
+                    <button key={s.station.id} type="button" className={`row-card${s.station.id === selId ? " sel" : ""}`} onClick={() => setSelId(s.station.id)}>
+                      <BrandTile brand={s.station.brand} size={40} />
+                      <span className="col-2 grow min0 left">
+                        <span className="b15 ellipsis">{s.station.name}</span>
+                        <span className="muted sm ellipsis">{sub(s)}</span>
+                        {s.station.disc && (
+                          <span className="tag disc fit">
+                            {s.station.disc.label} · {discText(s.station.disc)}
+                          </span>
+                        )}
+                        {s.bestInSeg && data.segments.length > 1 && <span className="tag best fit">Mejor del tramo</span>}
+                      </span>
+                      <span className="col-4 end">
+                        <span className="price-sm">{fmtPrice(paid(s))} €</span>
+                        <span className="muted xs nowrap">{fill(s)}</span>
+                      </span>
+                    </button>
+                  ))}
+                </section>
+              );
+            })}
+            <p className="source">
+              Ruta calculada con OSRM (OpenStreetMap); puede pasar por autopistas de peaje. Se enseñan las más baratas de cada tramo a menos de 2,5 km del recorrido. Ahorro frente a la media de la ruta llenando {settings.tank} L.
+            </p>
           </>
         )}
       </div>
+
+      <Sheet open={!!sel && mode === "fuel"} onClose={() => setSelId(null)} label="Parada en la ruta">
+        {sel && origin && to && (
+          <div className="stack-12">
+            <div className="row-12">
+              <BrandTile brand={sel.station.brand} size={44} />
+              <span className="col-2 grow min0">
+                <span className="b16 ellipsis">{sel.station.name}</span>
+                <span className="muted sm ellipsis">{sel.station.address}</span>
+              </span>
+              <span className="price-lg green">{fmtPrice(paid(sel))} €</span>
+            </div>
+            <span className="muted b13">
+              {sub(sel)} · {fill(sel).toLowerCase()}
+              {sel.netSavings >= 0.1 ? ` · ahorras ${fmtEuros(sel.netSavings)} € frente a la media de la ruta` : ""}
+              {sel.station.disc ? ` · ${sel.station.disc.label} ${discText(sel.station.disc)}` : ""}
+            </span>
+            <a className="btn primary big" href={navUrl("maps", sel.station, { origin, destination: to })} target="_blank" rel="noopener" onClick={() => visit(sel)}>
+              <Icon name="navigate" size={20} stroke={2.4} /> Google Maps con esta parada
+            </a>
+            <a className="btn soft" href={navUrl("waze", sel.station)} target="_blank" rel="noopener" onClick={() => visit(sel)}>
+              Waze hasta la gasolinera
+            </a>
+            <span className="muted b12">Google Maps te lleva a la gasolinera y luego sigue hasta {to.label}. Waze solo admite un destino: después de repostar, pulsa aquí abajo para seguir.</span>
+            <div className="stack-8">
+              <a className="btn soft small grow" href={navUrl("waze", to)} target="_blank" rel="noopener">
+                Seguir a destino con Waze
+              </a>
+              <Link className="btn soft small grow" href={stationHref(sel.station)}>
+                Ver ficha y precios
+              </Link>
+            </div>
+          </div>
+        )}
+      </Sheet>
 
       <Sheet open={!!editing} onClose={() => setEditing(null)} label={editing === "from" ? "Elegir origen" : "Elegir destino"}>
         <div className="stack-12">

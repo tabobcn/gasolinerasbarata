@@ -2079,3 +2079,16 @@ img.side-logo { background: none; border-radius: 0; }
 .map-screen.embedded .map-legend { bottom: 12px; }
 .disc-kind { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 0 0 12px; }
 .disc-kind .opt { height: 36px; font-size: 12px; padding: 0 4px; }
+
+/* ===== Tanda 4: ruta con mapa y tramos ===== */
+.route-map { position: relative; height: 280px; border-radius: 22px; overflow: hidden; background: #e9eee8; box-shadow: var(--shadow-1); }
+.route-end { display: block; width: 14px; height: 14px; border-radius: 7px; background: #0E1726; box-shadow: 0 0 0 3px #fff, 0 1px 4px rgba(14, 23, 38, 0.3); }
+.route-end.start { background: #fff; box-shadow: 0 0 0 3px #0E1726; }
+.pin-pill.route { padding: 4px 8px; }
+.pin-pill.route.top { background: var(--green); }
+.pin-pill.route.top .pin-price { color: #fff; }
+.pin-pill.route.top + .pin-tip { background: var(--green); }
+.card.as-button { border: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; display: flex; flex-direction: column; width: 100%; }
+.pill.fit { align-self: flex-start; }
+.tag.best { background: var(--green-bg); color: var(--green); }
+.row-card.sel { box-shadow: inset 0 0 0 2px var(--green); }
