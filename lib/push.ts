@@ -1,6 +1,6 @@
 "use client";
 
-import { alertsStore, createPersisted, favoritesStore, lastLocationStore, placesStore, usePersisted } from "./store";
+import { alertsStore, createPersisted, favoritesStore, lastLocationStore, placesStore, settingsStore, usePersisted } from "./store";
 import { discountsStore } from "./discountStore";
 import { encodeDiscounts } from "./discounts";
 
@@ -78,7 +78,8 @@ function payload(sub: PushSubscription) {
     const p = places.find((x) => x.id === a.zone);
     if (p) out.push({ id: a.id, fuel: a.fuel, threshold: a.threshold, radius: a.radius, lat: r(p.lat, 3), lon: r(p.lon, 3), label: p.label.toLowerCase() });
   }
-  const favFuels = [...new Set(alerts.filter((a) => a.favDrop).map((a) => a.fuel))];
+  const st = settingsStore.get();
+  const favFuels = [...new Set([...alerts.filter((a) => a.favDrop).map((a) => a.fuel), ...(st.favAlerts ? [st.fuel] : [])])];
   const favs = favFuels.length ? favoritesStore.get().slice(0, 30).map((f) => ({ id: f.id, m: f.m })) : [];
   return { sub: keysOf(sub), alerts: out.slice(0, 10), disc: encodeDiscounts(discountsStore.get()), favs, favFuels };
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { alertsStore, favoritesStore, lastLocationStore, placesStore } from "@/lib/store";
+import { alertsStore, favoritesStore, lastLocationStore, placesStore, settingsStore } from "@/lib/store";
 import { discountsStore } from "@/lib/discountStore";
 import { pushStore, syncPush } from "@/lib/push";
 
@@ -16,7 +16,7 @@ export function PushSync() {
       t = setTimeout(() => void syncPush(), ms);
     };
     later(4000); // al abrir la app
-    const offs = [alertsStore, placesStore, favoritesStore, discountsStore].map((s) => s.subscribe(() => later(2500)));
+    const offs = [alertsStore, placesStore, favoritesStore, discountsStore, settingsStore].map((s) => s.subscribe(() => later(2500)));
     offs.push(lastLocationStore.subscribe(() => later(8000)));
     return () => {
       if (t) clearTimeout(t);

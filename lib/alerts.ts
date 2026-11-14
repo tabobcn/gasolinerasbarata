@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { fuelByKey } from "./fuels";
-import { fmtKm, fmtPrice, madridDate } from "./format";
+import { fmtKm, fmtPrice, madridDate, priceChange } from "./format";
 import { getJSON, stationsUrl } from "./useJSON";
-import { alertsStore, createPersisted, favoritesStore, placesStore, type PriceAlert, type SavedPlace } from "./store";
+import { alertsStore, createPersisted, favoritesStore, placesStore, settingsStore, type PriceAlert, type SavedPlace } from "./store";
 import type { Prices, Station, StationsResponse } from "./types";
 import { discountsStore } from "./discountStore";
 import { applyDiscounts } from "./discounts";
@@ -80,7 +80,8 @@ export function useAlertMatches(here: { lat: number; lon: number } | null) {
   useEffect(() => {
     const alerts = alertsStore.get();
     const places = placesStore.get();
-    if (!alerts.length) {
+    const st0 = settingsStore.get();
+    if (!alerts.length && !st0.favAlerts) {
       setMatches([]);
       return;
     }
@@ -98,8 +99,8 @@ export function useAlertMatches(here: { lat: number; lon: number } | null) {
             key,
             alertId: a.id,
             station: st.cheapest,
-            title: `${f} a ${fmtPrice(st.cheapestPrice)} € cerca de ${st.zoneLabel}`,
-            body: `${st.cheapest.name}${st.cheapest.dist != null ? ` · a ${fmtKm(st.cheapest.dist)}` : ""} · toca para ir`,
+            title: `${st.cheapest.name}: ${fmtPrice(st.cheapestPrice)} €/l`,
+            body: `${f}, por debajo de tu aviso de ${fmtPrice(a.threshold)} € · ${st.cheapest.dist != null ? `a ${fmtKm(st.cheapest.dist)} de ${st.zoneLabel}` : `cerca de ${st.zoneLabel}`}`,
           });
           if (a.lastNotifiedKey !== key) {
             notify(out[out.length - 1]);
@@ -110,11 +111,12 @@ export function useAlertMatches(here: { lat: number; lon: number } | null) {
       // Favoritas que bajan 3 cts o más respecto a ayer
       const wantsFav = alerts.filter((a) => a.favDrop);
       const favs = favoritesStore.get();
-      if (wantsFav.length && favs.length) {
+      const favFuels = [...new Set([...wantsFav.map((a) => a.fuel), ...(st0.favAlerts ? [st0.fuel] : [])])];
+      if (favFuels.length && favs.length) {
         const items = favs.map((f) => `${f.id}:${f.m}`).join(",");
         const res = await getJSON<{ items: { station: Station; yesterday: Prices | null }[] }>(`/api/stations/lookup?items=${items}`).catch(() => null);
         if (!alive) return;
-        const fuels = [...new Set(wantsFav.map((a) => a.fuel))];
+        const fuels = favFuels;
         const sent = favNotified.get();
         const newlySent: string[] = [];
         for (const it of res?.items ?? []) {
@@ -125,8 +127,8 @@ export function useAlertMatches(here: { lat: number; lon: number } | null) {
               const m: AlertMatch = {
                 key: `${today}:fav:${it.station.id}:${fuel}`,
                 station: it.station,
-                title: `${it.station.name} ha bajado ${Math.round((before - now) * 100)} cts`,
-                body: `${fuelByKey(fuel)?.label} a ${fmtPrice(now)} € (ayer ${fmtPrice(before)} €)`,
+                title: `${it.station.name}: ${priceChange(before, now)}`,
+                body: `${fuelByKey(fuel)?.label} · tu favorita ha bajado desde ayer`,
               };
               out.push(m);
               if (!sent.includes(m.key)) {

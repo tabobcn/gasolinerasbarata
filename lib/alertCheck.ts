@@ -3,7 +3,7 @@ import { inBatches, daysAgo, municipalityHistory, municipalityStations, stations
 import { bboxAround, haversineKm } from "./geo";
 import { applyDiscounts, decodeDiscounts } from "./discounts";
 import { fuelByKey, isFuelKey, type FuelKey } from "./fuels";
-import { fmtKm, fmtPrice, madridDate } from "./format";
+import { fmtKm, fmtPrice, madridDate, priceChange } from "./format";
 
 /**
  * Comprobación de alertas en el servidor (la usa la función "push" de Supabase cada media hora).
@@ -54,14 +54,22 @@ export async function checkAlerts(alerts: AlertSpec[], disc: string): Promise<Al
       const cheapest = withFuel.sort((x, y) => x.prices[a.fuel]! - y.prices[a.fuel]!)[0] ?? null;
       const price = cheapest?.prices[a.fuel] ?? null;
       const hit = price != null && price < a.threshold - 0.00001;
+      // Precio de ayer de esa misma gasolinera, para decir cuánto ha bajado (si no se puede leer, se avisa sin él)
+      let before: number | null = null;
+      if (hit && cheapest) {
+        const yest = await municipalityHistory(cheapest.munId, daysAgo(1).key).catch(() => null);
+        const list = yest ? applyDiscounts(yest, d) : [];
+        before = list.find((s) => s.id === cheapest.id)?.prices[a.fuel] ?? null;
+      }
+      const where = cheapest?.dist != null ? `a ${fmtKm(cheapest.dist)} de ${a.label}` : `cerca de ${a.label}`;
       out.push(
         hit && cheapest
           ? {
               id: a.id,
               hit: true,
               price,
-              title: `${fuelByKey(a.fuel)?.label ?? ""} a ${fmtPrice(price)} € cerca de ${a.label}`,
-              body: `${cheapest.name}${cheapest.dist != null ? ` · a ${fmtKm(cheapest.dist)}` : ""} · toca para ir`,
+              title: before != null && before - price >= 0.005 ? `${cheapest.name}: ${priceChange(before, price)}` : `${cheapest.name}: ${fmtPrice(price)} €/l`,
+              body: `${fuelByKey(a.fuel)?.label ?? ""}${cheapest.disc ? ` con ${cheapest.disc.label}` : ""}, por debajo de tu aviso de ${fmtPrice(a.threshold)} € · ${where} · toca para verla`,
               url: `/gasolinera/${cheapest.id}?m=${cheapest.munId}`,
             }
           : { id: a.id, hit: false, price },
@@ -95,8 +103,8 @@ export async function checkFavDrops(favs: { id: string; m: string }[], fuels: Fu
       if (now != null && prev != null && prev - now >= 0.03) {
         out.push({
           key: `${today}:fav:${st.id}:${fuel}`,
-          title: `${st.name} ha bajado ${Math.round((prev - now) * 100)} cts`,
-          body: `${fuelByKey(fuel)?.label} a ${fmtPrice(now)} € (ayer ${fmtPrice(prev)} €)`,
+          title: `${st.name}: ${priceChange(prev, now)}`,
+          body: `${fuelByKey(fuel)?.label} · tu favorita ha bajado desde ayer · toca para verla`,
           url: `/gasolinera/${st.id}?m=${st.munId}`,
         });
       }

@@ -59,6 +59,23 @@ function AlertCard({ a }: { a: PriceAlert }) {
   );
 }
 
+/** "Avísame cuando baje una favorita", sin crear alertas una a una */
+function FavCard() {
+  const [s, setS] = useSettings();
+  return (
+    <label className="card row-12 toggle-row">
+      <span className="soft-icon amber" aria-hidden="true">
+        <Icon name="star" size={20} />
+      </span>
+      <span className="col-2 grow min0">
+        <span className="b15">Avísame cuando baje una favorita</span>
+        <span className="muted b12">Si alguna de tus favoritas baja 3 céntimos o más de un día para otro ({fuelByKey(s.fuel)?.label.toLowerCase()})</span>
+      </span>
+      <input type="checkbox" className="switch" checked={!!s.favAlerts} onChange={() => setS((p) => ({ ...p, favAlerts: !p.favAlerts }))} />
+    </label>
+  );
+}
+
 /** Interruptor de avisos con la app cerrada (push) */
 function PushCard() {
   const [push] = usePush();
@@ -137,6 +154,7 @@ function PushCard() {
 
 export function AlertsList() {
   const [alerts] = useAlerts();
+  const [settings] = useSettings();
   return (
     <div className="screen with-nav">
       <div className="stack-16 pad-x top">
@@ -156,7 +174,8 @@ export function AlertsList() {
         {alerts.map((a) => (
           <AlertCard key={a.id} a={a} />
         ))}
-        {alerts.length > 0 && <PushCard />}
+        <FavCard />
+        {(alerts.length > 0 || settings.favAlerts) && <PushCard />}
       </div>
       <BottomNav />
     </div>

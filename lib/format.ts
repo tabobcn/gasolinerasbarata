@@ -30,6 +30,12 @@ export function fmtCents(diffEuros: number): string {
   return `${c} ${c === 1 ? "ct" : "cts"}`;
 }
 
+/** Texto de un cambio de precio para los avisos: "1,459 → 1,399 €/l (−6 cts)" */
+export function priceChange(before: number, now: number): string {
+  const c = Math.round((now - before) * 1000) / 10;
+  return `${fmtPrice(before)} → ${fmtPrice(now)} €/l (${c < 0 ? "−" : "+"}${String(Math.abs(c)).replace(".", ",")} cts)`;
+}
+
 export function signedCents(diffEuros: number): string {
   const c = Math.round(diffEuros * 1000) / 10; // décimas de céntimo
   if (Math.abs(c) < 0.5) return "=";
