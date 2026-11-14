@@ -10,7 +10,8 @@ import { stationHref } from "../StationRow";
 import { BottomNav, BrandTile, Sheet } from "../ui";
 import { ChargerTile } from "../ChargerBits";
 import { Icon, LocateIcon } from "../Icon";
-import { settingsStore, useMode, useSettings } from "@/lib/store";
+import { settingsStore, useMode, useSettings, useShows } from "@/lib/store";
+import { brandVisible } from "@/lib/brands";
 import { r3, stationsUrl, useJSON } from "@/lib/useJSON";
 import type { Station, StationsResponse } from "@/lib/types";
 import { average, levelFor } from "@/lib/savings";
@@ -61,6 +62,7 @@ export function MapScreen({ embedded }: { embedded?: "fuel" | "charge" } = {}) {
   const [ready, setReady] = useState(false);
   // Gasolineras o cargadores (nunca mezclados). Recuerda el último modo usado.
   const [storeMode, setMode] = useMode();
+  const shows = useShows();
   const mode = embedded ?? storeMode;
   const car = carFrom(settings);
   const [onlyCompat, setOnlyCompat] = useState(true);
@@ -103,9 +105,10 @@ export function MapScreen({ embedded }: { embedded?: "fuel" | "charge" } = {}) {
   const [disc, setDisc] = useDiscounts();
   const stations = useMemo(() => {
     if (mode !== "fuel") return [];
-    const list = applyDiscounts(data?.stations ?? [], disc).filter((s) => s.prices[fuel] != null);
+    const visible = brandVisible(settings.hiddenBrands);
+    const list = applyDiscounts(data?.stations ?? [], disc).filter((s) => s.prices[fuel] != null && visible(s.brand));
     return openOnly ? list.filter((s) => openStatus(s.hours, s.provId).open !== false) : list;
-  }, [data, fuel, openOnly, disc, mode]);
+  }, [data, fuel, openOnly, disc, mode, settings.hiddenBrands]);
   const avg = useMemo(() => average(stations, fuel), [stations, fuel]);
   const cheapestId = useMemo(() => [...stations].sort((a, b) => a.prices[fuel]! - b.prices[fuel]!)[0]?.id, [stations, fuel]);
   const selected: Station | undefined = stations.find((s) => s.id === sel) ?? stations.find((s) => s.id === cheapestId);
@@ -326,6 +329,7 @@ export function MapScreen({ embedded }: { embedded?: "fuel" | "charge" } = {}) {
       )}
 
       <div className="map-top">
+        {shows.fuel && shows.charge && (
         <div role="tablist" aria-label="Qué ver en el mapa" className="mode-tabs floating">
           <button type="button" role="tab" aria-selected={mode === "fuel"} className={mode === "fuel" ? "on" : undefined} onClick={() => switchMode("fuel")}>
             <Icon name="pump" size={16} stroke={2.4} color={mode === "fuel" ? "#0B7A43" : "currentColor"} />
@@ -336,6 +340,7 @@ export function MapScreen({ embedded }: { embedded?: "fuel" | "charge" } = {}) {
             Cargadores
           </button>
         </div>
+        )}
         <button type="button" className="search-box as-button" onClick={() => setSheet("search")}>
           <Icon name="search" size={20} color="#5B6675" />
           <span className="muted b15">Buscar zona o dirección</span>

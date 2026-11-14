@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { brandStyle, LOGO_IMG, tileCss } from "@/lib/brands";
 import { fuelByKey, type FuelKey } from "@/lib/fuels";
-import { useMode } from "@/lib/store";
+import { useMode, useSettings, useShows } from "@/lib/store";
 import { Icon, type IconName } from "./Icon";
 
 export function BrandTile({ brand, size = 40 }: { brand: string; size?: number }) {
@@ -44,21 +44,43 @@ export function BottomNav() {
   );
 }
 
+const CAR_LABEL: Record<string, string> = { gas: "Gasolina", diesel: "Diésel", glp: "GLP / gas", phev: "Híbrido enchufable", ev: "Eléctrico" };
+
 export function ModeTabs({ mode }: { mode: "fuel" | "charge" }) {
+  const shows = useShows();
+  const [settings] = useSettings();
+  const both = shows.fuel && shows.charge;
   return (
     <div className="mode-row">
-      <div role="tablist" aria-label="Modo" className="mode-tabs">
-        <Link href="/" role="tab" aria-selected={mode === "fuel"} className={mode === "fuel" ? "on" : undefined}>
-          <Icon name="pump" size={16} stroke={2.4} color={mode === "fuel" ? "#0B7A43" : "currentColor"} />
-          Combustible
+      {both ? (
+        <div role="tablist" aria-label="Modo" className="mode-tabs">
+          <Link href="/" role="tab" aria-selected={mode === "fuel"} className={mode === "fuel" ? "on" : undefined}>
+            <Icon name="pump" size={16} stroke={2.4} color={mode === "fuel" ? "#0B7A43" : "currentColor"} />
+            Combustible
+          </Link>
+          <Link href="/carga" role="tab" aria-selected={mode === "charge"} className={mode === "charge" ? "on" : undefined}>
+            <Icon name="bolt" size={16} stroke={mode === "charge" ? 1.6 : 2.2} fill={mode === "charge" ? "#1F4FD1" : "none"} color={mode === "charge" ? "#1F4FD1" : "currentColor"} />
+            Carga
+          </Link>
+        </div>
+      ) : (
+        // Coche de un solo tipo: no hay nada que elegir, se enseña para qué coche está la app
+        <Link href="/mi-coche" className="car-pill">
+          <Icon name="car" size={20} stroke={2} />
+          <span className="col-2 grow min0">
+            <span className="b14 ellipsis">{settings.carName?.trim() || "Mi coche"}</span>
+            <span className="muted b12">{CAR_LABEL[settings.carType] ?? ""}</span>
+          </span>
+          <Icon name="chevronRight" size={18} color="#5B6675" />
         </Link>
-        <Link href="/carga" role="tab" aria-selected={mode === "charge"} className={mode === "charge" ? "on" : undefined}>
-          <Icon name="bolt" size={16} stroke={mode === "charge" ? 1.6 : 2.2} fill={mode === "charge" ? "#1F4FD1" : "none"} color={mode === "charge" ? "#1F4FD1" : "currentColor"} />
-          Carga
+      )}
+      {both && (
+        <Link href="/mi-coche" aria-label="Mi coche" className="icon-btn square">
+          <Icon name="car" size={22} stroke={2} />
         </Link>
-      </div>
-      <Link href="/mi-coche" aria-label="Mi coche" className="icon-btn square">
-        <Icon name="car" size={22} stroke={2} />
+      )}
+      <Link href="/ajustes" aria-label="Ajustes" className="icon-btn square">
+        <Icon name="settings" size={22} stroke={2} />
       </Link>
     </div>
   );

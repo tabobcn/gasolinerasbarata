@@ -104,7 +104,7 @@ export function NavigateProvider({ children }: { children: React.ReactNode }) {
             <button type="button" className="btn ghost" onClick={close}>
               Cancelar
             </button>
-            {settings.navApp && <span className="muted xs center">Puedes cambiar la app en Mi coche</span>}
+            {settings.navApp && <span className="muted xs center">Puedes cambiar la app en Ajustes</span>}
           </div>
         )}
       </Sheet>

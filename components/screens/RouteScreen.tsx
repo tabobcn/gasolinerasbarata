@@ -6,7 +6,8 @@ import { Icon } from "../Icon";
 import { PlaceSearch } from "../PlaceSearch";
 import { useLocation } from "../LocationProvider";
 import { navUrl, useNavigate } from "../NavigateProvider";
-import { useMode, useSettings } from "@/lib/store";
+import { useMode, useSettings, useShows } from "@/lib/store";
+import { brandVisible } from "@/lib/brands";
 import { ChargeRoute } from "../ChargeRoute";
 import { useJSON, r3 } from "@/lib/useJSON";
 import type { Place, RouteResponse } from "@/lib/types";
@@ -26,6 +27,7 @@ export function RouteScreen() {
   const [to, setTo] = useState<Pt | null>(null);
   const [editing, setEditing] = useState<null | "from" | "to">(null);
   const [mode, setMode] = useMode(); // gasolineras o cargadores (el último que usaste)
+  const shows = useShows();
 
   const [discState] = useDiscounts();
   const origin = from ?? (loc ? { lat: loc.lat, lon: loc.lon, label: loc.label ?? "Mi ubicación" } : null);
@@ -43,15 +45,18 @@ export function RouteScreen() {
     setEditing(null);
   };
 
-  const best = data?.stops[0];
+  const visible = brandVisible(settings.hiddenBrands);
+  const stops = (data?.stops ?? []).filter((s) => visible(s.station.brand)); // sin las marcas ocultas en Ajustes
+  const best = stops[0];
   const total = data?.distanceKm ?? 1;
-  const marks = data?.stops.slice(0, 4) ?? [];
+  const marks = stops.slice(0, 4);
 
   return (
     <div className="screen with-nav">
       <div className="stack-16 pad-x top">
         <h1 className="h1 big">Ruta</h1>
 
+        {shows.fuel && shows.charge && (
         <div role="tablist" aria-label="Qué buscar en la ruta" className="mode-tabs">
           <button type="button" role="tab" aria-selected={mode === "fuel"} className={mode === "fuel" ? "on" : undefined} onClick={() => setMode("fuel")}>
             <Icon name="pump" size={16} stroke={2.4} color={mode === "fuel" ? "#0B7A43" : "currentColor"} />
@@ -62,6 +67,7 @@ export function RouteScreen() {
             Cargadores
           </button>
         </div>
+        )}
 
         <div className="card stack-12">
           <div className="row-12">
@@ -146,7 +152,7 @@ export function RouteScreen() {
               <span className="muted b13">Por ahorro real</span>
             </div>
 
-            {!data.stops.length && <EmptyState icon="pump" title="Sin gasolineras en la ruta" text={`No hemos encontrado ${fuelByKey(fuel)?.label.toLowerCase()} a menos de 2,5 km del recorrido.`} />}
+            {!stops.length && <EmptyState icon="pump" title="Sin gasolineras en la ruta" text={`No hemos encontrado ${fuelByKey(fuel)?.label.toLowerCase()} a menos de 2,5 km del recorrido.`} />}
 
             {best && (
               <div className="card hero stack-12">
@@ -170,7 +176,7 @@ export function RouteScreen() {
             )}
 
             <div className="stack-8">
-              {data.stops.slice(1).map((s) => (
+              {stops.slice(1).map((s) => (
                 <button key={s.station.id} type="button" className="row-card" onClick={() => goTo({ ...s.station, dist: undefined })}>
                   <BrandTile brand={s.station.brand} size={40} />
                   <span className="col-2 grow min0 left">

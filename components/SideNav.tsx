@@ -15,6 +15,7 @@ const ITEMS: { href: string; label: string; icon: IconName; match: (p: string) =
   { href: "/repostajes", label: "Mis repostajes", icon: "trendDown", match: (p) => p.startsWith("/repostajes") },
   { href: "/descuentos", label: "Descuentos", icon: "card", match: (p) => p.startsWith("/descuentos") },
   { href: "/mi-coche", label: "Mi coche", icon: "car", match: (p) => p.startsWith("/mi-coche") },
+  { href: "/ajustes", label: "Ajustes", icon: "settings", match: (p) => p.startsWith("/ajustes") },
 ];
 
 /** Menú lateral: solo se ve en ordenador (en el móvil se usa la barra inferior) */

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "../LocationProvider";
 import { useNavigate } from "../NavigateProvider";
@@ -14,7 +15,8 @@ import { InstallHint } from "../InstallHint";
 import { Welcome } from "../Welcome";
 import { BottomNav, BrandTile, EmptyState, FuelChips, ModeTabs, Sheet, Skeleton } from "../ui";
 import { Icon } from "../Icon";
-import { favoritesStore, modeStore, settingsStore, useFavorites, useRefuels, useSettings } from "@/lib/store";
+import { favoritesStore, modeStore, settingsStore, useFavorites, useRefuels, useSettings, useShows } from "@/lib/store";
+import { brandVisible } from "@/lib/brands";
 import { stationsUrl, useJSON } from "@/lib/useJSON";
 import type { StationsResponse } from "@/lib/types";
 import { average, bestValue } from "@/lib/savings";
@@ -31,7 +33,13 @@ export function Home() {
   const { loc, status, ready, locate, setPlace } = useLocation();
   const desktop = useDesktop();
   const [settings, setSettings] = useSettings();
-  useEffect(() => modeStore.set("fuel"), []);
+  const shows = useShows();
+  const router = useRouter();
+  // Un eléctrico no usa gasolineras: su pantalla de inicio son los cargadores
+  useEffect(() => {
+    if (shows.fuel) modeStore.set("fuel");
+    else router.replace("/carga");
+  }, [shows.fuel, router]);
   const [favs] = useFavorites();
   const [sheet, setSheet] = useState(false);
   const fuel = settings.fuels.includes(settings.fuel) ? settings.fuel : settings.fuels[0] ?? "g95";
@@ -40,7 +48,8 @@ export function Home() {
 
   const view = useMemo(() => {
     if (!data) return null;
-    const withFuel = applyDiscounts(data.stations, disc).filter((s) => s.prices[fuel] != null);
+    const visible = brandVisible(settings.hiddenBrands);
+    const withFuel = applyDiscounts(data.stations, disc).filter((s) => s.prices[fuel] != null && visible(s.brand));
     const openOnes = withFuel.filter((s) => openStatus(s.hours, s.provId).open !== false);
     const best = bestValue(openOnes.length ? openOnes : withFuel, fuel, settings.tank);
     const avg = average(withFuel, fuel);
@@ -49,7 +58,7 @@ export function Home() {
       .sort((a, b) => a.prices[fuel]! - b.prices[fuel]! || (a.dist ?? 0) - (b.dist ?? 0))
       .slice(0, 12);
     return { best, avg, others, count: withFuel.length };
-  }, [data, fuel, settings.tank, disc]);
+  }, [data, fuel, settings.tank, disc, settings.hiddenBrands]);
 
   const place = loc?.label ?? data?.stations[0]?.mun ?? (loc ? "Tu zona" : "¿Dónde estás?");
   const best = view?.best;

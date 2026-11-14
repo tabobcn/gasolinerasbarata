@@ -60,6 +60,16 @@ export function knownBrandList(): { key: string; name: string }[] {
   return out.sort((a, b) => a.name.localeCompare(b.name, "es"));
 }
 
+/** Devuelve la función que dice si una marca se enseña, según las que el usuario ha ocultado en Ajustes */
+export function brandVisible(hidden: string[] | undefined): (brand: string) => boolean {
+  if (!hidden?.length) return () => true;
+  const names = new Set(hidden.map((k) => KNOWN[k]?.name ?? k));
+  return (brand) => {
+    const k = knownBrand(brand);
+    return !k || !names.has(KNOWN[k].name ?? k);
+  };
+}
+
 const PALETTE = ["#334155", "#3F4E6B", "#4B5563", "#2E5E4E", "#5B4636", "#4A3F6B", "#3B5B6B"];
 
 export function brandKey(rotulo: string): string {

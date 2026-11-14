@@ -67,7 +67,7 @@ export function usePersisted<T>(store: Store<T>): [T, Store<T>["set"]] {
 
 // ---------- Datos de la app ----------
 
-export type CarType = "gas" | "diesel" | "phev" | "ev";
+export type CarType = "gas" | "diesel" | "glp" | "phev" | "ev";
 export type NavApp = "maps" | "waze";
 
 export type Settings = {
@@ -82,6 +82,9 @@ export type Settings = {
   plugs: string[];
   navApp: NavApp | null; // recordar app para ir
   radius: number; // km
+  configured?: boolean; // el usuario ya ha guardado su coche (bienvenida o "Mi coche")
+  hiddenBrands?: string[]; // marcas donde no quiere repostar (claves de lib/brands)
+  showAll?: boolean; // ver gasolineras y cargadores aunque su coche no use una de las dos cosas
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -157,4 +160,42 @@ export function uid(): string {
 /** Último modo usado (gasolina o carga), para que el mapa abra en el mismo */
 export type AppMode = "fuel" | "charge";
 export const modeStore = createPersisted<AppMode>("gc.mode", "fuel");
-export const useMode = () => usePersisted(modeStore);
+
+/**
+ * Qué enseña la app según el coche: un eléctrico no necesita gasolineras y un coche de combustión
+ * no necesita cargadores. Mientras no se haya configurado el coche (o si lo pide en Ajustes) se ve todo.
+ */
+export function carShows(s: Pick<Settings, "carType" | "configured" | "showAll">): { fuel: boolean; charge: boolean } {
+  if (!s.configured || s.showAll) return { fuel: true, charge: true };
+  if (s.carType === "ev") return { fuel: false, charge: true };
+  if (s.carType === "phev") return { fuel: true, charge: true };
+  return { fuel: true, charge: false };
+}
+export function useShows() {
+  const [s] = useSettings();
+  return carShows(s);
+}
+
+/** La bienvenida sigue pendiente: aún no ha dicho qué coche lleva ni la ha saltado */
+export function onboardingPending(): boolean {
+  try {
+    return window.localStorage.getItem("gc.welcome") !== "1" && !settingsStore.get().configured;
+  } catch {
+    return false;
+  }
+}
+export function onboardingDone() {
+  try {
+    window.localStorage.setItem("gc.welcome", "1");
+  } catch {
+    /* nada */
+  }
+}
+
+/** Modo en uso, ajustado a lo que el coche puede usar */
+export function useMode(): [AppMode, (v: AppMode | ((prev: AppMode) => AppMode)) => void] {
+  const [stored, set] = usePersisted(modeStore);
+  const shows = useShows();
+  const mode: AppMode = !shows.charge ? "fuel" : !shows.fuel ? "charge" : stored;
+  return [mode, set];
+}

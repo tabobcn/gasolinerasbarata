@@ -2010,3 +2010,53 @@ img.side-logo { background: none; border-radius: 0; }
 .rf-near button.link-btn { all: unset; cursor: pointer; align-self: flex-start; padding: 8px 4px; font-size: 13px; font-weight: 800; color: var(--green); }
 .saving-box .row-between { gap: 12px; align-items: baseline; }
 .saving-box .row-between strong { white-space: nowrap; }
+
+/* ===== Bienvenida, Ajustes y coche de un solo tipo ===== */
+.onboard {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  background: var(--bg);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.onboard-in {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: calc(28px + env(safe-area-inset-top)) 20px calc(28px + var(--safe-b));
+  display: flex;
+  flex-direction: column;
+}
+.onboard-logo { border-radius: 16px; }
+.onboard-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  padding: 12px 0 calc(4px + var(--safe-b));
+  background: linear-gradient(to top, var(--bg) 70%, transparent);
+}
+.car-pill {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--ink);
+  text-decoration: none;
+}
+.set-list { padding-top: 4px; padding-bottom: 4px; }
+.set-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.set-link + .set-link { border-top: 1px solid var(--line-2); }
+.opt.hide.on { background: var(--line); color: var(--muted); text-decoration: line-through; }

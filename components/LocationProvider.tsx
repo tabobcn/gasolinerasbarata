@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { lastLocationStore, settingsStore } from "@/lib/store";
+import { lastLocationStore, onboardingPending, settingsStore } from "@/lib/store";
 import { parseFuelParam } from "@/lib/fuels";
 
 export type Loc = {
@@ -107,6 +107,8 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
       setReady(true);
       return;
     }
+    // La primera vez, la bienvenida explica para qué es la ubicación y la pide al terminar
+    if (window.location.pathname === "/" && onboardingPending()) return;
     locate();
   }, [locate]);
 
