@@ -21,7 +21,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     const title = prices.length ? `${st.name} · ${prices[0]}` : st.name;
     const where = [st.address, st.town || st.mun].filter(Boolean).join(", ");
     const description = `${where}. ${prices.slice(0, 4).join(" · ")}. Precios oficiales de hoy, horario y cómo llegar.`;
-    return { title, description };
+    return { title, description, alternates: { canonical: `/gasolinera/${id}?m=${m}` } };
   } catch {
     return fallback;
   }

@@ -5,6 +5,8 @@ import { fuelByKey, type FuelKey } from "@/lib/fuels";
 import { levelFor } from "@/lib/savings";
 import type { FuelSummary } from "@/lib/seo";
 import type { Station } from "@/lib/types";
+import { SITE_URL } from "@/lib/config";
+import { JsonLd } from "./JsonLd";
 
 export const stationLink = (s: Station) => `/gasolinera/${s.id}?m=${s.munId}`;
 
@@ -75,8 +77,19 @@ export function SummaryTable({ rows, compare }: { rows: FuelSummary[]; compare?:
 }
 
 export function Crumbs({ items }: { items: { href?: string; label: string }[] }) {
+  const ld = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((it, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: it.label,
+      ...(it.href ? { item: `${SITE_URL}${it.href}` } : {}),
+    })),
+  };
   return (
     <nav aria-label="Estás en" className="crumbs">
+      <JsonLd data={ld} />
       {items.map((it, i) => (
         <span key={i}>
           {i > 0 && <span aria-hidden="true"> › </span>}

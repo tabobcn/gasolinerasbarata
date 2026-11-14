@@ -9,6 +9,7 @@ import { SideNav } from "@/components/SideNav";
 import { PushSync } from "@/components/PushSync";
 import { Analytics } from "@vercel/analytics/next";
 import { APP_NAME, APP_DESCRIPTION, SITE_URL } from "@/lib/config";
+import { JsonLd } from "@/components/seo/JsonLd";
 
 const manrope = Manrope({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], display: "swap", variable: "--font-manrope" });
 
@@ -31,10 +32,29 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+const SITE_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    { "@type": "WebSite", "@id": `${SITE_URL}/#web`, url: SITE_URL, name: APP_NAME, description: APP_DESCRIPTION, inLanguage: "es-ES" },
+    {
+      "@type": "WebApplication",
+      "@id": `${SITE_URL}/#app`,
+      name: APP_NAME,
+      url: SITE_URL,
+      description: APP_DESCRIPTION,
+      applicationCategory: "TravelApplication",
+      operatingSystem: "Android, iOS, Web",
+      inLanguage: "es-ES",
+      offers: { "@type": "Offer", price: "0", priceCurrency: "EUR" },
+    },
+  ],
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={manrope.variable}>
       <body>
+        <JsonLd data={SITE_LD} />
         <a href="#main" className="skip">Saltar al contenido</a>
         <LocationProvider>
           <NavigateProvider>

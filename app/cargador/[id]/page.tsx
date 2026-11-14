@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const where = [prettyAddress(ch.address), prettyCity(ch.city)].filter(Boolean).join(", ");
     const title = `${chargerName(ch)} · punto de recarga`;
     const description = `${where}. ${plugs}.${from} Precio, si funciona y si está libre ahora. Datos de Red Eléctrica (REVE).`;
-    return { title, description };
+    return { title, description, alternates: { canonical: `/cargador/${encodeURIComponent(id)}` } };
   } catch {
     return fallback;
   }

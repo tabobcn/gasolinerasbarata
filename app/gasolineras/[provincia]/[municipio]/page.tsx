@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BottomNav } from "@/components/ui";
-import { Crumbs, SeoStationRow, SummaryTable } from "@/components/seo/SeoBits";
+import { Crumbs, SeoStationRow, stationLink, SummaryTable } from "@/components/seo/SeoBits";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { cheapestList, fmtLongDate, fuelSummary, municipalitiesOf, provinceBySlug, provinceData, provinceSlug, SEO_FUELS, type Municipality } from "@/lib/seo";
 import { haversineKm } from "@/lib/geo";
 import { areasOf, chargerGrid, countNear } from "@/lib/seoChargers";
@@ -80,9 +81,38 @@ export default async function Page({ params }: Props) {
     .then((g) => countNear(g, evArea.lat, evArea.lon, evArea.km))
     .catch(() => 0);
 
+  // Las mismas gasolineras de la lista de gasolina 95 (o diésel), descritas para los buscadores
+  const listFuel = g95.count > 0 ? "g95" : "goa";
+  const listed = cheapestList(here, listFuel, 30);
+  const listLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: `Gasolineras más baratas en ${mun.name}`,
+    numberOfItems: listed.length,
+    itemListElement: listed.map((st, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      item: {
+        "@type": "GasStation",
+        name: st.name,
+        url: `${SITE_URL}${stationLink(st)}`,
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: st.address,
+          addressLocality: st.town || st.mun,
+          addressRegion: p.name,
+          ...(st.cp ? { postalCode: st.cp } : {}),
+          addressCountry: "ES",
+        },
+        geo: { "@type": "GeoCoordinates", latitude: st.lat, longitude: st.lon },
+      },
+    })),
+  };
+
   return (
     <div className="screen with-nav">
       <div className="stack-16 pad-x top seo">
+        <JsonLd data={listLd} />
         <Crumbs items={[{ href: "/gasolineras", label: "Provincias" }, { href: `/gasolineras/${slug}`, label: p.name }, { label: mun.name }]} />
         <h1 className="h1 big">Gasolineras más baratas en {mun.name} hoy</h1>
         <p className="muted b13">
