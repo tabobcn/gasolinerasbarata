@@ -123,7 +123,7 @@ export default async function Page({ params }: Props) {
           <p className="b15 lead">No tenemos ningún punto de recarga registrado en {mun.name} ni a menos de {String(area.km).replace(".", ",")} km. Mira en los municipios cercanos.</p>
         )}
         <div className="row-10 wrap">
-          <a href={`/carga?${appHere}`} className="btn primary grow">
+          <a href={`/carga?${appHere}`} rel="nofollow" className="btn primary grow">
             Abrir en la app
           </a>
           <Link href={`/gasolineras/${slug}/${mun.slug}`} className="btn soft grow">

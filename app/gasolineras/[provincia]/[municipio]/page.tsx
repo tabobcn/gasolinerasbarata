@@ -132,7 +132,7 @@ export default async function Page({ params }: Props) {
           </p>
         )}
         <div className="row-10 wrap">
-          <a href={`/?${appHere}`} className="btn primary grow">
+          <a href={`/?${appHere}`} rel="nofollow" className="btn primary grow">
             Abrir en la app
           </a>
           {evCount > 0 ? (
@@ -140,7 +140,7 @@ export default async function Page({ params }: Props) {
               Cargadores en {mun.name}
             </Link>
           ) : (
-            <a href={`/carga?${appHere}`} className="btn soft grow">
+            <a href={`/carga?${appHere}`} rel="nofollow" className="btn soft grow">
               Cargadores
             </a>
           )}

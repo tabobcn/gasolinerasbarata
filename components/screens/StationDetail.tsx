@@ -331,7 +331,7 @@ export function StationDetail({ id, m, initial }: { id: string; m: string | null
                   {st.lat.toFixed(5)}, {st.lon.toFixed(5)}
                 </span>
               </span>
-              <Link href={`/mapa?sel=${st.id}&lat=${st.lat}&lon=${st.lon}`} className="link-btn">
+              <Link href={`/mapa?sel=${st.id}&lat=${st.lat}&lon=${st.lon}`} rel="nofollow" className="link-btn">
                 Ver en mapa
               </Link>
             </div>
