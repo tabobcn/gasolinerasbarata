@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
       .slice(0, 500);
     const body: StationsResponse = { updatedAt: ds.updatedAt, center: { lat, lon }, radius, stations };
     return NextResponse.json(body, {
-      headers: { "Cache-Control": "public, s-maxage=600, stale-while-revalidate=1800" },
+      // Una respuesta sin gasolineras no se guarda en la caché: si es un fallo pasajero, se arregla sola al momento
+      headers: { "Cache-Control": stations.length ? "public, s-maxage=600, stale-while-revalidate=1800" : "no-store" },
     });
   } catch (e) {
     console.error("[api]", (e as Error).message); // el detalle se queda en el registro del servidor

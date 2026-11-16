@@ -130,9 +130,19 @@ function toDataset(raw: RawResponse): Dataset {
   };
 }
 
+/**
+ * A veces el Ministerio contesta "OK" con la lista vacía (pasó el 16-11-2026 con Barcelona). Si se guardara,
+ * la zona se quedaría sin gasolineras 20 minutos. Se trata como un fallo: se sirven los datos anteriores si los
+ * hay y, si no, se avisa del error para que se reintente.
+ */
+function notEmpty(d: Dataset): Dataset {
+  if (!d.stations.length) throw new Error("El Ministerio ha devuelto una lista vacía");
+  return d;
+}
+
 export function provinceStations(provId: string): Promise<Dataset> {
   return cached(`p:${provId}`, async () =>
-    toDataset(await getJSON(`${BASE}/EstacionesTerrestres/FiltroProvincia/${provId}`, 0)),
+    notEmpty(toDataset(await getJSON(`${BASE}/EstacionesTerrestres/FiltroProvincia/${provId}`, 0))),
   );
 }
 
@@ -149,7 +159,7 @@ export async function inBatches<T, R>(items: T[], size: number, fn: (item: T) =>
 export function municipalityStations(munIdRaw: string): Promise<Dataset> {
   const munId = canonMun(munIdRaw);
   return cached(`m:${munId}`, async () =>
-    toDataset(await getJSON(`${BASE}/EstacionesTerrestres/FiltroMunicipio/${munId}`, 0)),
+    notEmpty(toDataset(await getJSON(`${BASE}/EstacionesTerrestres/FiltroMunicipio/${munId}`, 0))),
   );
 }
 
