@@ -43,7 +43,7 @@ export function SeoStationRow({ s, fuel, avg, rank }: { s: Station; fuel: FuelKe
   );
 }
 
-export function SummaryTable({ rows, compare }: { rows: FuelSummary[]; compare?: Record<string, number | null> }) {
+export function SummaryTable({ rows, compare, spain }: { rows: FuelSummary[]; compare?: Record<string, number | null>; spain?: Partial<Record<FuelKey, number>> }) {
   const shown = rows.filter((r) => r.count > 0);
   if (!shown.length) return null;
   return (
@@ -67,6 +67,7 @@ export function SummaryTable({ rows, compare }: { rows: FuelSummary[]; compare?:
               <td>
                 {fmtPrice(r.avg)} €
                 {compare?.[r.fuel] != null && r.avg != null && <span className="muted b12 block">provincia {fmtPrice(compare[r.fuel])} €</span>}
+                {spain?.[r.fuel] != null && r.avg != null && <span className="muted b12 block">España {fmtPrice(spain[r.fuel])} €</span>}
               </td>
             </tr>
           ))}
@@ -97,5 +98,66 @@ export function Crumbs({ items }: { items: { href?: string; label: string }[] })
         </span>
       ))}
     </nav>
+  );
+}
+
+/** Gráfica pequeña (sin JavaScript) de la media de un combustible en los últimos días */
+export function Sparkline({ label, points }: { label: string; points: { date: string; v: number }[] }) {
+  if (points.length < 2) return null;
+  const W = 140;
+  const H = 40;
+  const vs = points.map((p) => p.v);
+  const min = Math.min(...vs);
+  const max = Math.max(...vs);
+  const span = max - min || 0.01;
+  const xy = points.map((p, i) => [(i / (points.length - 1)) * W, H - 4 - ((p.v - min) / span) * (H - 8)] as const);
+  const line = xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const diff = vs[vs.length - 1] - vs[0];
+  const down = diff < -0.0005;
+  const up = diff > 0.0005;
+  const color = down ? "#0B7A43" : up ? "#B5341A" : "#5B6675";
+  const [lx, ly] = xy[xy.length - 1];
+  return (
+    <div className="spark">
+      <span className="eyebrow">{label}</span>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" role="img" aria-label={`${label}: de ${fmtPrice(vs[0])} a ${fmtPrice(vs[vs.length - 1])} €`}>
+        <path d={`${line} L${W},${H} L0,${H} Z`} fill={color} opacity="0.08" />
+        <path d={line} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+        <circle cx={lx} cy={ly} r="3" fill={color} />
+      </svg>
+      <span className="b15">
+        <strong>{fmtPrice(vs[vs.length - 1])} €</strong>{" "}
+        <span className="b13" style={{ color }}>
+          {down ? "−" : up ? "+" : "±"}
+          {fmtPrice(Math.abs(diff))}
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/** Preguntas frecuentes: se ven en la página y se describen a los buscadores con el mismo texto */
+export function Faq({ items }: { items: { q: string; a: string }[] }) {
+  if (!items.length) return null;
+  const ld = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: items.map((it) => ({ "@type": "Question", name: it.q, acceptedAnswer: { "@type": "Answer", text: it.a } })),
+  };
+  return (
+    <section className="stack-8" aria-labelledby="faq">
+      <JsonLd data={ld} />
+      <h2 className="h3" id="faq">
+        Preguntas frecuentes
+      </h2>
+      <div className="card tight faq">
+        {items.map((it) => (
+          <details key={it.q}>
+            <summary className="b15">{it.q}</summary>
+            <p className="b14">{it.a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
   );
 }

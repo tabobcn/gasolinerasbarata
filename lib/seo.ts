@@ -78,13 +78,13 @@ const BASE = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/P
 export type ProvinceData = { updatedAt: string | null; stations: Station[] };
 
 /**
- * Precios de una provincia para las páginas por ciudad. Usa la caché de datos de Next (30 min),
+ * Precios de una provincia para las páginas por ciudad. Usa la caché de datos de Next (15 min),
  * así las páginas se pueden servir ya hechas (ISR) sin llamar al Ministerio en cada visita.
  */
 export async function provinceData(provId: string): Promise<ProvinceData> {
   const res = await fetch(`${BASE}/EstacionesTerrestres/FiltroProvincia/${provId}`, {
     headers: { Accept: "application/json" },
-    next: { revalidate: 1800 },
+    next: { revalidate: 900 },
     signal: AbortSignal.timeout(25000),
   });
   if (!res.ok) throw new Error(`Ministerio respondió ${res.status}`);

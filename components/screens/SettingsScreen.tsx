@@ -21,6 +21,9 @@ const LINKS: { href: string; label: string; icon: IconName }[] = [
   { href: "/repostajes", label: "Mis repostajes", icon: "trendDown" },
   { href: "/instalar", label: "Instalar la app y avisos", icon: "bell" },
   { href: "/privacidad", label: "Fuentes y privacidad", icon: "info" },
+  { href: "/soporte", label: "Ayuda", icon: "info" },
+  { href: "/eliminar-datos", label: "Eliminar mis datos", icon: "info" },
+  { href: "/aviso-legal", label: "Aviso legal", icon: "info" },
 ];
 const BRANDS = [...knownBrandList(), { key: OTHER_BRANDS, name: "Otras (low cost e independientes)" }];
 

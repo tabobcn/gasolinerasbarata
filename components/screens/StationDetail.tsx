@@ -6,7 +6,7 @@ import { useEffect, useMemo } from "react";
 import { useJSON } from "@/lib/useJSON";
 import type { HistoryResponse, StationDetailResponse } from "@/lib/types";
 import { FUELS, fuelByKey } from "@/lib/fuels";
-import { fmtEuros, fmtKm, fmtPrice, signedCents, etaMin, timeAgo } from "@/lib/format";
+import { fmtEuros, fmtKm, fmtPrice, signedCents, fmtKmEta, timeAgo } from "@/lib/format";
 import { openStatus, prettySchedule } from "@/lib/hours";
 import { haversineKm } from "@/lib/geo";
 import { favoritesStore, recordVisit, useFavorites, useSettings } from "@/lib/store";
@@ -176,7 +176,7 @@ export function StationDetail({ id, m, initial }: { id: string; m: string | null
               </span>
               {dist != null && (
                 <span className="chip-static white">
-                  {fmtKm(dist)} · {etaMin(dist)} min
+                  {fmtKmEta(dist)}
                 </span>
               )}
               <span className="chip-static white">CP {st.cp}</span>

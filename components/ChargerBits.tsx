@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { fmtKm } from "@/lib/format";
+import { fmtKm, fmtKmEta } from "@/lib/format";
 import { availText, chargerHref, chargerName, cpoStyle, displayGroup, priceNote, type Avail, type Car, type Charger, type Summary } from "@/lib/chargers";
 
 const euro = (n: number) => n.toFixed(2).replace(".", ",");
@@ -49,7 +49,7 @@ export function ChargerRow({ s, car }: { s: Summary; car: Car }) {
       <span className="col-2 grow min0">
         <span className="b15 ellipsis">{chargerName(s.ch)}</span>
         <span className="muted b12 ellipsis">
-          {fmtKm(s.ch.dist)} · {s.plugs || "Sin datos de enchufes"}
+          {fmtKmEta(s.ch.dist)} · {s.plugs || "Sin datos de enchufes"}
         </span>
         <span className={`b12 tone-${t.tone}`}>
           {car.electric && !s.compatible ? "No compatible con tu coche" : t.text}

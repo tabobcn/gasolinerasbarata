@@ -7,7 +7,7 @@ import { cheapestList, fmtLongDate, fuelSummary, municipalitiesOf, PROVINCES, pr
 import { SITE_URL } from "@/lib/config";
 import { fmtPrice } from "@/lib/format";
 
-export const revalidate = 1800;
+export const revalidate = 900;
 export const dynamicParams = true;
 export async function generateStaticParams() {
   return []; // se generan al primer acceso y se guardan 30 min

@@ -43,7 +43,9 @@ export function SideNav() {
       <p className="side-foot">
         Precios oficiales del Ministerio para la Transición Ecológica. Cargadores: Red Eléctrica de España.
         <br />
-        <Link href="/privacidad">Fuentes y privacidad</Link>
+        <Link href="/privacidad">Fuentes y privacidad</Link> · <Link href="/aviso-legal">Aviso legal</Link>
+        <br />
+        <Link href="/soporte">Ayuda y contacto</Link>
         <br />
         <Link href="/instalar">Instalar la app y avisos</Link>
       </p>

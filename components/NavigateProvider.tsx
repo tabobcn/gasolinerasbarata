@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { recordVisit, settingsStore, useSettings, type NavApp } from "@/lib/store";
-import { fmtKm, etaMin } from "@/lib/format";
+import { fmtKmEta } from "@/lib/format";
 import type { Station } from "@/lib/types";
 import { BrandTile, Sheet } from "./ui";
 import { Icon } from "./Icon";
@@ -61,7 +61,7 @@ export function NavigateProvider({ children }: { children: React.ReactNode }) {
                 <h2 className="h-sheet">¿Con qué app quieres ir?</h2>
                 <span className="muted sm ellipsis">
                   {target.name}
-                  {target.dist != null ? ` · ${fmtKm(target.dist)} · ${etaMin(target.dist)} min` : ""}
+                  {target.dist != null ? ` · ${fmtKmEta(target.dist)}` : ""}
                 </span>
               </div>
             </div>

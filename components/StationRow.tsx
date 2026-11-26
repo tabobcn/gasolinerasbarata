@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { fmtEuros, fmtKm, fmtPrice, shortStreet } from "@/lib/format";
+import { fmtEuros, fmtKmEta, fmtPrice, shortStreet } from "@/lib/format";
 import type { FuelKey } from "@/lib/fuels";
 import { openStatus } from "@/lib/hours";
 import type { Station } from "@/lib/types";
@@ -28,7 +28,7 @@ export function StationRow({ s, fuel, tank, bestPrice }: { s: Station; fuel: Fue
       <span className="col-2 grow min0">
         <span className="b15 ellipsis">{s.name}</span>
         <span className="muted sm ellipsis">
-          {fmtKm(s.dist)}
+          {fmtKmEta(s.dist)}
           {st.open === false && (
             <>
               {" · "}

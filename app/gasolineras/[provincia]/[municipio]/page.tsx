@@ -2,19 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BottomNav } from "@/components/ui";
-import { Crumbs, SeoStationRow, stationLink, SummaryTable } from "@/components/seo/SeoBits";
+import { Crumbs, Faq, SeoStationRow, Sparkline, stationLink, SummaryTable } from "@/components/seo/SeoBits";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { cheapestList, fmtLongDate, fuelSummary, municipalitiesOf, provinceBySlug, provinceData, provinceSlug, SEO_FUELS, type Municipality } from "@/lib/seo";
 import { haversineKm } from "@/lib/geo";
 import { areasOf, chargerGrid, countNear } from "@/lib/seoChargers";
 import { SITE_URL } from "@/lib/config";
-import { fmtPrice } from "@/lib/format";
-import { fuelByKey } from "@/lib/fuels";
+import { fmtEuros, fmtPrice } from "@/lib/format";
+import { fuelByKey, type FuelKey } from "@/lib/fuels";
+import { municipalityTrend, nationalToday } from "@/lib/national";
 
-export const revalidate = 1800;
+export const revalidate = 900;
 export const dynamicParams = true;
 export async function generateStaticParams() {
-  return []; // se generan al primer acceso y se guardan 30 min
+  return []; // se generan al primer acceso y se guardan 15 min
 }
 
 type Props = { params: Promise<{ provincia: string; municipio: string }> };
@@ -66,20 +67,60 @@ export default async function Page({ params }: Props) {
   const sums = SEO_FUELS.map((f) => fuelSummary(here, f));
   const provAvg = Object.fromEntries(SEO_FUELS.map((f) => [f, fuelSummary(data.stations, f).avg]));
   const [g95, goa] = sums;
-  const near = muns
-    .filter((m) => m.id !== mun.id)
-    .map((m) => ({ m, d: haversineKm(mun.lat, mun.lon, m.lat, m.lon) }))
-    .sort((a, b) => a.d - b.d)
-    .slice(0, 12)
-    .map((x) => x.m);
-  const spot = g95.cheapest ?? goa.cheapest ?? mun;
-  const appHere = `lat=${spot.lat.toFixed(4)}&lon=${spot.lon.toFixed(4)}`;
   const cents = (a: number, b: number) => Math.round((b - a) * 100);
   // ¿Hay cargadores en el municipio? Entonces se enlaza su página; si no, la búsqueda de la app
   const evArea = areasOf([mun], here).get(mun.id)!;
   const evCount = await chargerGrid()
     .then((g) => countNear(g, evArea.lat, evArea.lon, evArea.km))
     .catch(() => 0);
+  const near = muns
+    .filter((m) => m.id !== mun.id)
+    .map((m) => ({ m, d: haversineKm(mun.lat, mun.lon, m.lat, m.lon), from: fuelSummary(data.stations.filter((s) => s.munId === m.id), "g95").min }))
+    .sort((a, b) => a.d - b.d)
+    .slice(0, 12);
+  // Media de España y evolución del municipio: si fallan, la página sale igual sin esas partes
+  const [spain, trend] = await Promise.all([
+    nationalToday()
+      .then((n) => n.avg)
+      .catch(() => undefined),
+    municipalityTrend(mun.id, here).catch(() => []),
+  ]);
+  // Lo que se ahorra eligiendo bien dentro del municipio (el combustible con más diferencia de los dos principales)
+  const TANK = 50;
+  const spread = [g95, goa]
+    .filter((s) => s.count > 1 && s.min != null && s.max != null && s.max - s.min >= 0.005)
+    .sort((a, b) => b.max! - b.min! - (a.max! - a.min!))[0];
+  const trendFuels: FuelKey[] = (["g95", "goa", "g98", "glp"] as FuelKey[]).filter((f) => trend.filter((t) => t.avg[f] != null).length >= 3);
+  const fuelName = (f: FuelKey) => fuelByKey(f)?.label.toLowerCase() ?? f;
+  const faq: { q: string; a: string }[] = [];
+  if (g95.cheapest || goa.cheapest) {
+    const parts = [g95, goa]
+      .filter((s) => s.cheapest)
+      .map((s) => `para ${fuelName(s.fuel)}, ${s.cheapest!.name} (${s.cheapest!.address}) a ${fmtPrice(s.min)} €/l`);
+    faq.push({ q: `¿Cuál es la gasolinera más barata de ${mun.name}?`, a: `Con los precios oficiales de hoy, ${parts.join("; y ")}. Los precios cambian a lo largo del día.` });
+  }
+  if (spread) {
+    faq.push({
+      q: `¿Cuánto se ahorra eligiendo bien en ${mun.name}?`,
+      a: `En ${fuelName(spread.fuel)} hay ${cents(spread.min!, spread.max!)} céntimos por litro entre la gasolinera más cara y la más barata del municipio: unos ${fmtEuros((spread.max! - spread.min!) * TANK)} € en un depósito de ${TANK} litros.`,
+    });
+  }
+  if (spain?.goa != null && goa.avg != null) {
+    const d = goa.avg - spain.goa;
+    faq.push({
+      q: `¿Es caro repostar en ${mun.name}?`,
+      a: `La media del diésel en ${mun.name} es de ${fmtPrice(goa.avg)} €/l, ${Math.abs(cents(spain.goa, goa.avg))} céntimos ${d < 0 ? "por debajo" : "por encima"} de la media de España (${fmtPrice(spain.goa)} €/l).`,
+    });
+  }
+  faq.push({
+    q: "¿De dónde salen estos precios?",
+    a: "Son los precios oficiales que cada gasolinera comunica al Ministerio para la Transición Ecológica y el Reto Demográfico (Geoportal de Gasolineras). Se actualizan cada media hora; el que vale es el del surtidor.",
+  });
+  if (evCount > 0) {
+    faq.push({ q: `¿Hay cargadores para coche eléctrico en ${mun.name}?`, a: `Sí, hay ${evCount} puntos de recarga en la zona, con su precio y su estado cuando el operador lo publica (datos de Red Eléctrica de España).` });
+  }
+  const spot = g95.cheapest ?? goa.cheapest ?? mun;
+  const appHere = `lat=${spot.lat.toFixed(4)}&lon=${spot.lon.toFixed(4)}`;
 
   // Las mismas gasolineras de la lista de gasolina 95 (o diésel), descritas para los buscadores
   const listFuel = g95.count > 0 ? "g95" : "goa";
@@ -146,7 +187,32 @@ export default async function Page({ params }: Props) {
           )}
         </div>
 
-        <SummaryTable rows={sums} compare={provAvg} />
+        {spread && (
+          <div className="save-card">
+            <span className="eyebrow">AHORRO ELIGIENDO BIEN</span>
+            <span className="big-num">{fmtEuros((spread.max! - spread.min!) * TANK)} €</span>
+            <span className="b14">
+              por depósito de {TANK} litros de {fuelName(spread.fuel)}: hay {cents(spread.min!, spread.max!)} céntimos por litro entre la más cara y la más barata
+              de {mun.name}, sin salir del municipio.
+            </span>
+          </div>
+        )}
+
+        <SummaryTable rows={sums} compare={provAvg} spain={spain} />
+
+        {trendFuels.length > 0 && (
+          <section className="stack-8" aria-labelledby="evolucion">
+            <h2 className="h3" id="evolucion">
+              Cómo ha cambiado el precio en el último mes
+            </h2>
+            <div className="spark-grid">
+              {trendFuels.map((f) => (
+                <Sparkline key={f} label={fuelByKey(f)?.label ?? f} points={trend.filter((t) => t.avg[f] != null).map((t) => ({ date: t.date, v: t.avg[f]! }))} />
+              ))}
+            </div>
+            <p className="muted b12">Media de las gasolineras de {mun.name}, con los precios oficiales del Ministerio de los últimos 30 días.</p>
+          </section>
+        )}
 
         {sums
           .filter((s) => s.count > 0 && (s.fuel === "g95" || s.fuel === "goa" || here.length <= 3))
@@ -169,16 +235,21 @@ export default async function Page({ params }: Props) {
               Municipios cercanos
             </h2>
             <ul className="seo-grid">
-              {near.map((m) => (
+              {near.map(({ m, d, from }) => (
                 <li key={m.id}>
                   <Link href={`/gasolineras/${slug}/${m.slug}`} className="seo-link">
                     {m.name}
+                    <span className="sub">
+                      {d < 10 ? d.toFixed(1).replace(".", ",") : Math.round(d)} km{from != null ? ` · 95 desde ${fmtPrice(from)} €` : ""}
+                    </span>
                   </Link>
                 </li>
               ))}
             </ul>
           </section>
         )}
+        <Faq items={faq} />
+
         <p className="source">
           Fuente: Ministerio para la Transición Ecológica y el Reto Demográfico (Geoportal de Gasolineras). Precios por litro con impuestos; pueden cambiar a
           lo largo del día. <Link href={`/gasolineras/${slug}`}>Ver toda la provincia de {p.name}</Link>.

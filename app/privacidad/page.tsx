@@ -4,7 +4,7 @@ import { BottomNav } from "@/components/ui";
 import { APP_NAME, CONTACT_EMAIL, OWNER_NAME, SITE_URL } from "@/lib/config";
 
 export const metadata: Metadata = {
-  title: "Fuentes de los datos, privacidad y aviso legal",
+  title: "Fuentes de los datos y privacidad",
   description: `De dónde salen los precios de ${APP_NAME}, qué se guarda en tu móvil y qué no guardamos nosotros.`,
   alternates: { canonical: `${SITE_URL}/privacidad` },
 };
@@ -174,12 +174,13 @@ export default function Page() {
           </h2>
           <p className="b15">
             Para cualquier duda, para avisar de un dato equivocado o para pedir que borremos algo, escribe a{" "}
-            <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
+            <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. Cómo borrar tus datos paso a paso: <Link href="/eliminar-datos">Eliminar mis datos</Link>.
           </p>
         </section>
 
         <p className="source">
-          Última revisión: 14 de noviembre de 2026. <Link href="/">Volver a la app</Link>
+          Última revisión: 26 de noviembre de 2026. <Link href="/aviso-legal">Aviso legal</Link> · <Link href="/soporte">Ayuda y contacto</Link> ·{" "}
+          <Link href="/">Volver a la app</Link>
         </p>
       </div>
       <BottomNav />

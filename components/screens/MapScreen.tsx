@@ -15,7 +15,7 @@ import { brandVisible } from "@/lib/brands";
 import { r3, stationsUrl, useJSON } from "@/lib/useJSON";
 import type { Station, StationsResponse } from "@/lib/types";
 import { average, levelFor } from "@/lib/savings";
-import { fmtKm, fmtPrice } from "@/lib/format";
+import { fmtKm, fmtKmEta, fmtPrice } from "@/lib/format";
 import { FUELS, fuelByKey } from "@/lib/fuels";
 import { openStatus } from "@/lib/hours";
 import { brandStyle } from "@/lib/brands";
@@ -431,7 +431,7 @@ export function MapScreen({ embedded }: { embedded?: "fuel" | "charge" } = {}) {
             <div className="col-2 grow min0">
               <span className="b16 ellipsis">{selected.name}</span>
               <span className="muted sm ellipsis">
-                {fmtKm(selDist)} · {openStatus(selected.hours, selected.provId).label}
+                {fmtKmEta(selDist)} · {openStatus(selected.hours, selected.provId).label}
               </span>
             </div>
             <div className="col-2 end">
@@ -465,7 +465,7 @@ export function MapScreen({ embedded }: { embedded?: "fuel" | "charge" } = {}) {
             <div className="col-2 grow min0">
               <span className="b16 ellipsis">{chargerName(selCh.ch)}</span>
               <span className="muted sm ellipsis">
-                {fmtKm(chDist)} · {selCh.plugs}
+                {fmtKmEta(chDist)} · {selCh.plugs}
               </span>
             </div>
             <div className="col-2 end">

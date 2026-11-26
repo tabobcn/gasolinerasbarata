@@ -2111,3 +2111,23 @@ img.side-logo { background: none; border-radius: 0; }
 
 /* Historial de 30 días: con tantos puntos, los de en medio van más pequeños para que no se pisen */
 .pchart.dense .pchart-dot:not(.last):not(.min):not(.max) { width: 6px; height: 6px; margin: -3px 0 0 -3px; box-shadow: 0 0 0 1.5px var(--green); }
+
+/* Páginas por municipio: evolución, comparación y preguntas */
+.spark-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.spark { display: flex; flex-direction: column; gap: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; min-width: 0; }
+.spark svg { display: block; }
+.faq details { border-bottom: 1px solid var(--line-2); padding: 12px 4px; }
+.faq details:last-child { border-bottom: 0; }
+.faq summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 12px; font-weight: 700; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: "+"; color: var(--green); font-weight: 800; }
+.faq details[open] summary::after { content: "−"; }
+.faq p { margin: 8px 0 0; line-height: 1.5; }
+.save-card { background: var(--green-bg); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.save-card .big-num { font-size: 26px; font-weight: 800; color: var(--green); line-height: 1.1; }
+.seo-link .sub { display: block; font-weight: 500; font-size: 12px; color: var(--muted); margin-top: 2px; }
+.rank-list { list-style: none; margin: 0; padding: 0; }
+.rank-list li { display: flex; justify-content: space-between; gap: 10px; padding: 10px 4px; border-bottom: 1px solid var(--line-2); }
+.rank-list li:last-child { border-bottom: 0; }
+.rank-list a { color: inherit; text-decoration: none; font-weight: 700; }
+.rank-list a:hover { color: var(--green); }

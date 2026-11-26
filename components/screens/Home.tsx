@@ -20,7 +20,7 @@ import { brandVisible } from "@/lib/brands";
 import { stationsUrl, useJSON } from "@/lib/useJSON";
 import type { StationsResponse } from "@/lib/types";
 import { average, bestValue } from "@/lib/savings";
-import { fmtCents, fmtEuros, fmtKm, fmtPrice, madridDate, timeAgo } from "@/lib/format";
+import { fmtCents, fmtEuros, fmtKm, fmtKmEta, fmtPrice, madridDate, timeAgo } from "@/lib/format";
 import { fuelByKey } from "@/lib/fuels";
 import { openStatus } from "@/lib/hours";
 import { useDiscounts } from "@/lib/discountStore";
@@ -186,7 +186,7 @@ export function Home() {
               <span className="col-2 min0">
                 <span className="b17 clamp-2">{best.station.name}</span>
                 <span className="muted sm ellipsis">
-                  {best.station.address} · {fmtKm(best.station.dist)} · {openStatus(best.station.hours, best.station.provId).label}
+                  {best.station.address} · {fmtKmEta(best.station.dist)} · {openStatus(best.station.hours, best.station.provId).label}
                 </span>
               </span>
             </Link>

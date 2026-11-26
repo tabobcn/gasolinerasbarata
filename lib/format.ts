@@ -13,9 +13,21 @@ export function fmtKm(km: number | null | undefined): string {
   return `${km < 10 ? km.toFixed(1).replace(".", ",") : Math.round(km)} km`;
 }
 
-/** Minutos aproximados en ciudad (≈ 30 km/h efectivos) */
+/**
+ * Minutos aproximados en coche hasta un punto a "km" en línea recta. Sin llamar a ningún servicio (tu ubicación no
+ * sale del móvil): por carretera se suele recorrer un 30 % más, y cuanto más lejos, más rápido se va
+ * (ciudad cerca, vías rápidas lejos).
+ */
 export function etaMin(km: number): number {
-  return Math.max(1, Math.round((km * 1.3) / 30 * 60));
+  const road = km * 1.3 + 0.2;
+  const kmh = road < 3 ? 25 : road < 8 ? 32 : road < 20 ? 45 : 65;
+  return Math.max(1, Math.round((road / kmh) * 60));
+}
+
+/** "1,2 km · ≈ 4 min" */
+export function fmtKmEta(km: number | null | undefined): string {
+  if (km == null) return "";
+  return `${fmtKm(km)} · ≈ ${fmtMinutes(etaMin(km))}`;
 }
 
 export function fmtMinutes(min: number): string {

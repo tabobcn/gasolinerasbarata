@@ -15,7 +15,7 @@ import { modeStore, settingsStore, useSettings } from "@/lib/store";
 import { r3, stationsUrl, useJSON } from "@/lib/useJSON";
 import type { StationsResponse } from "@/lib/types";
 import { average, CONSUMPTION_L_100KM } from "@/lib/savings";
-import { fmtKm, fmtMinutes } from "@/lib/format";
+import { fmtKm, fmtKmEta, fmtMinutes } from "@/lib/format";
 import { doubtText, refText, vatText,
   carFrom,
   chargerHref,
@@ -225,7 +225,7 @@ export function Charge() {
               <span className="col-2 min0">
                 <span className="b17 clamp-2">{chargerName(hero.ch)}</span>
                 <span className="muted sm ellipsis">
-                  {fmtKm(hero.ch.dist)} · {PLUG_LABEL[hg.kind]} · {kw(hg.kw)}
+                  {fmtKmEta(hero.ch.dist)} · {PLUG_LABEL[hg.kind]} · {kw(hg.kw)}
                   {hero.ch.h24 ? " · 24 h" : ""}
                 </span>
               </span>
