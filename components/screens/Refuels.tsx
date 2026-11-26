@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { BottomNav, BrandTile, Sheet } from "../ui";
+import { BottomNav, BrandTile, Sheet, VehicleSheet } from "../ui";
 import { Icon } from "../Icon";
-import { refuelsStore, useFavorites, useRefuels, useSettings, useVisits, type Refuel } from "@/lib/store";
+import { garageStore, refuelsStore, useFavorites, useGarage, useRefuels, useSettings, useVisits, vehicleName, type Refuel } from "@/lib/store";
 import { FUELS, fuelByKey, isFuelKey, type FuelKey } from "@/lib/fuels";
 import { fmtEuros, fmtKm, fmtPrice, madridDate } from "@/lib/format";
 import { useLocation } from "../LocationProvider";
@@ -41,8 +41,12 @@ type Tab = "recientes" | "favoritas" | "cerca";
 type Form = { id?: string; date: string; name: string; brand: string; stationId?: string; munId?: string; fuel: FuelKey; liters: string; price: string; total: string; km: string };
 
 export function Refuels() {
-  const [list] = useRefuels();
+  const [all] = useRefuels();
   const [settings] = useSettings();
+  const [garage] = useGarage();
+  const [pickVeh, setPickVeh] = useState(false);
+  // Cada vehículo tiene sus repostajes (los de antes de tener varios son del primero)
+  const list = useMemo(() => (garage.active ? all.filter((r) => !r.vehicle || r.vehicle === garage.active) : all), [all, garage.active]);
   const today = madridDate(new Date());
   const [form, setForm] = useState<Form | null>(null);
   const [last, setLast] = useState<"liters" | "total">("total"); // qué se calcula solo
@@ -146,6 +150,7 @@ export function Refuels() {
       price: fp!,
       total: ft!,
       km: num(form.km) ?? undefined,
+      vehicle: all.find((x) => x.id === form.id)?.vehicle ?? garageStore.get().active ?? undefined,
     };
     refuelsStore.set((l) => [...l.filter((x) => x.id !== r.id), r].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).slice(0, 500));
     setForm(null);
@@ -195,7 +200,14 @@ export function Refuels() {
     <div className="screen with-nav">
       <div className="stack-16 pad-x top">
         <div className="row-between">
-          <h1 className="h1">Mis repostajes</h1>
+          <span className="col-2 min0">
+            <h1 className="h1">Mis repostajes</h1>
+            {garage.list.length > 1 && (
+              <button type="button" className="link-btn veh-link" onClick={() => setPickVeh(true)}>
+                <Icon name="car" size={16} /> {vehicleName(settings.carName, settings.carType)} · cambiar
+              </button>
+            )}
+          </span>
           <button type="button" className="btn primary small" onClick={() => setForm(blank())}>
             <Icon name="plus" size={16} stroke={2.6} /> Apuntar
           </button>
@@ -402,6 +414,7 @@ export function Refuels() {
           </div>
         )}
       </Sheet>
+      <VehicleSheet open={pickVeh} onClose={() => setPickVeh(false)} />
       <BottomNav />
     </div>
   );

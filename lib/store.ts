@@ -140,6 +140,7 @@ export type Refuel = {
   price: number; // €/l
   total: number; // €
   km?: number; // cuentakilómetros (opcional, para el consumo)
+  vehicle?: string; // vehículo al que pertenece (id de Vehicle)
 };
 
 export const settingsStore = createPersisted<Settings>("gc.settings", DEFAULT_SETTINGS, true);
@@ -215,4 +216,97 @@ export function useMode(): [AppMode, (v: AppMode | ((prev: AppMode) => AppMode))
   const shows = useShows();
   const mode: AppMode = !shows.charge ? "fuel" : !shows.fuel ? "charge" : stored;
   return [mode, set];
+}
+
+// ---------- Varios vehículos ----------
+
+/**
+ * Cada vehículo guarda lo suyo (tipo, combustibles, depósito, parte eléctrica). El que está en uso se copia en los
+ * ajustes (gc.settings), así el resto de la app sigue leyendo "settings" sin saber que hay varios. Lo demás
+ * (descuentos, favoritas, Casa y Trabajo, marcas, radio) es de la persona y se comparte entre vehículos.
+ */
+export type Vehicle = Pick<Settings, "carType" | "fuels" | "fuel" | "tank" | "battery" | "ac" | "dc" | "plugs"> & { id: string; name: string };
+export type Garage = { active: string | null; list: Vehicle[] };
+export const garageStore = createPersisted<Garage>("gc.vehicles", { active: null, list: [] });
+export const useGarage = () => usePersisted(garageStore);
+
+const CAR_TYPE_NAME: Record<CarType, string> = { gas: "Gasolina", diesel: "Diésel", glp: "GLP / gas", phev: "Híbrido enchufable", ev: "Eléctrico" };
+export const vehicleName = (name: string | undefined, type: CarType) => name?.trim() || CAR_TYPE_NAME[type] || "Mi vehículo";
+
+function vehicleFrom(s: Settings, id: string): Vehicle {
+  return {
+    id,
+    name: vehicleName(s.carName, s.carType),
+    carType: s.carType,
+    fuels: [...s.fuels],
+    fuel: s.fuel,
+    tank: s.tank,
+    battery: s.battery,
+    ac: s.ac,
+    dc: s.dc,
+    plugs: [...s.plugs],
+  };
+}
+
+/**
+ * Pasa al sistema de vehículos a quien ya tenía su coche configurado: ese coche es el primero y sus repostajes,
+ * los de ese coche. Se puede llamar las veces que haga falta.
+ */
+export function ensureGarage(): Garage {
+  const g = garageStore.get();
+  const s = settingsStore.get();
+  if (g.list.length || !s.configured) return g;
+  const v = vehicleFrom(s, uid());
+  const next = { active: v.id, list: [v] };
+  garageStore.set(next);
+  refuelsStore.set((l) => l.map((r) => (r.vehicle ? r : { ...r, vehicle: v.id })));
+  return next;
+}
+
+/** Guarda en su vehículo lo que haya cambiado en los ajustes (combustible elegido, depósito…) */
+export function saveActiveVehicle(s: Settings = settingsStore.get()) {
+  const g = garageStore.get();
+  if (!g.active) return;
+  garageStore.set({ ...g, list: g.list.map((v) => (v.id === g.active ? vehicleFrom(s, v.id) : v)) });
+}
+
+/** Cambia de vehículo: se queda guardado y la próxima vez la app abre con este */
+export function switchVehicle(id: string) {
+  const g = ensureGarage();
+  if (g.active === id) return;
+  const target = g.list.find((v) => v.id === id);
+  if (!target) return;
+  saveActiveVehicle();
+  const { id: _id, name, ...fields } = target;
+  void _id;
+  // primero se marca el nuevo como activo, así lo que se copie a los ajustes se guarda en él y no en el anterior
+  garageStore.set((cur) => ({ ...cur, active: id }));
+  settingsStore.set((s) => ({ ...s, ...fields, carName: name, configured: true }));
+}
+
+/** Guarda un vehículo nuevo y lo deja en uso */
+export function addVehicle(s: Settings): string {
+  ensureGarage();
+  saveActiveVehicle();
+  const v = vehicleFrom(s, uid());
+  garageStore.set((g) => ({ active: v.id, list: [...g.list, v] }));
+  settingsStore.set((cur) => ({ ...cur, ...s, carName: v.name, configured: true }));
+  return v.id;
+}
+
+/** Borra un vehículo y sus repostajes. Si era el que estaba en uso, se pasa al primero que quede. */
+export function removeVehicle(id: string) {
+  const g = ensureGarage();
+  if (g.list.length <= 1) return;
+  const rest = g.list.filter((v) => v.id !== id);
+  if (g.active === id) {
+    garageStore.set({ ...g, list: rest, active: null });
+    const first = rest[0];
+    const { id: fid, name, ...fields } = first;
+    settingsStore.set((s) => ({ ...s, ...fields, carName: name }));
+    garageStore.set({ list: rest, active: fid });
+  } else {
+    garageStore.set({ ...g, list: rest });
+  }
+  refuelsStore.set((l) => l.filter((r) => r.vehicle !== id));
 }

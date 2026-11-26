@@ -1,6 +1,7 @@
 "use client";
 
 import { Icon } from "./Icon";
+import { useEffect, useState } from "react";
 import { Stepper } from "./ui";
 import type { CarType, Settings } from "@/lib/store";
 import { FUELS, type FuelKey } from "@/lib/fuels";
@@ -22,6 +23,37 @@ const PLUGS = [
 ];
 
 const num = (n: number) => String(n).replace(".", ",");
+
+/** Litros del depósito: se escribe el número que se quiera (de 1 a 200), para una moto, una furgoneta o una caravana */
+function TankInput({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  const [text, setText] = useState(String(value));
+  useEffect(() => setText(String(value)), [value]);
+  const commit = (t: string) => {
+    const n = Math.round(Number(t.replace(",", ".")));
+    if (Number.isFinite(n) && n >= 1 && n <= 200) onChange(n);
+    else setText(String(value));
+  };
+  return (
+    <span className="tank-input">
+      <input
+        id="car-tank"
+        type="text"
+        inputMode="numeric"
+        maxLength={3}
+        value={text}
+        onChange={(e) => {
+          const t = e.target.value.replace(/[^0-9]/g, "");
+          setText(t);
+          const n = Number(t);
+          if (n >= 1 && n <= 200) onChange(n);
+        }}
+        onBlur={(e) => commit(e.target.value)}
+        aria-describedby="car-tank-unit"
+      />
+      <span id="car-tank-unit">litros</span>
+    </span>
+  );
+}
 
 /**
  * Formulario del coche: tipo, nombre, combustibles, depósito y parte eléctrica.
@@ -46,7 +78,7 @@ export function CarForm({ s, set, hideType }: { s: Settings; set: (patch: Partia
     <>
       {!hideType && (
       <section className="card stack-10">
-        <h2 className="eyebrow">TIPO DE COCHE</h2>
+        <h2 className="eyebrow">TIPO DE VEHÍCULO</h2>
         <div className="grid-2">
           {CAR_TYPES.map((t, i) => (
             <button
@@ -66,11 +98,11 @@ export function CarForm({ s, set, hideType }: { s: Settings; set: (patch: Partia
 
       <section className="card stack-10">
         <label className="eyebrow" htmlFor="car-name">
-          NOMBRE DE TU COCHE (OPCIONAL)
+          NOMBRE DE TU VEHÍCULO
         </label>
         <span className="search-box">
           <Icon name="car" size={20} color="#5B6675" />
-          <input id="car-name" type="text" maxLength={40} autoComplete="off" placeholder="Por ejemplo: Cupra Formentor híbrido" value={s.carName ?? ""} onChange={(e) => set({ carName: e.target.value })} />
+          <input id="car-name" type="text" maxLength={40} autoComplete="off" placeholder="Moto, caravana, Seat León…" value={s.carName ?? ""} onChange={(e) => set({ carName: e.target.value })} />
         </span>
       </section>
 
@@ -88,11 +120,11 @@ export function CarForm({ s, set, hideType }: { s: Settings; set: (patch: Partia
             </div>
           </div>
           <div className="row-between">
-            <span className="col-2">
+            <label className="col-2" htmlFor="car-tank">
               <span className="b15">Depósito</span>
               <span className="muted b12">Para calcular cuánto cuesta llenarlo</span>
-            </span>
-            <Stepper value={s.tank} unit="L" min={20} max={120} onChange={(tank) => set({ tank })} labelLess="Menos litros" labelMore="Más litros" />
+            </label>
+            <TankInput value={s.tank} onChange={(tank) => set({ tank })} />
           </div>
         </section>
       )}

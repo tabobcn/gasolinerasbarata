@@ -7,6 +7,7 @@ import { NavigateProvider } from "@/components/NavigateProvider";
 import { SwRegister } from "@/components/SwRegister";
 import { SideNav } from "@/components/SideNav";
 import { PushSync } from "@/components/PushSync";
+import { VehicleSync } from "@/components/VehicleSync";
 import { Analytics } from "@vercel/analytics/next";
 import { APP_NAME, APP_DESCRIPTION, SITE_URL } from "@/lib/config";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -64,6 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </LocationProvider>
         <SwRegister />
         <PushSync />
+        <VehicleSync />
         {/* Estadísticas de visitas anónimas y sin cookies (hay que activarlas en el panel de Vercel) */}
         <Analytics />
       </body>

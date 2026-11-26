@@ -15,7 +15,7 @@ import { InstallHint } from "../InstallHint";
 import { Welcome } from "../Welcome";
 import { BottomNav, BrandTile, EmptyState, FuelChips, ModeTabs, Sheet, Skeleton } from "../ui";
 import { Icon } from "../Icon";
-import { favoritesStore, modeStore, recordVisit, settingsStore, useFavorites, useRefuels, useSettings, useShows } from "@/lib/store";
+import { favoritesStore, modeStore, recordVisit, settingsStore, useFavorites, useGarage, useRefuels, useSettings, useShows } from "@/lib/store";
 import { brandVisible } from "@/lib/brands";
 import { stationsUrl, useJSON } from "@/lib/useJSON";
 import type { StationsResponse } from "@/lib/types";
@@ -75,7 +75,9 @@ export function Home() {
   const isFav = best ? favs.some((f) => f.id === best.station.id) : false;
   const goTo = useNavigate();
   const carName = settings.carName?.trim();
-  const [refuels] = useRefuels();
+  const [allRefuels] = useRefuels();
+  const [garage] = useGarage();
+  const refuels = garage.active ? allRefuels.filter((r) => !r.vehicle || r.vehicle === garage.active) : allRefuels;
   const ym = madridDate(new Date()).slice(0, 7);
   const monthSpend = refuels.length ? refuels.filter((r) => r.date.startsWith(ym)).reduce((a, r) => a + r.total, 0) : null;
 

@@ -81,7 +81,7 @@ export function Welcome() {
                 {CAR_TYPES.find((t) => t.id === s.carType)?.label}
               </h2>
             </div>
-            <span className="muted b14">Con esto calculamos cuánto te cuesta llenar. Lo puedes cambiar cuando quieras.</span>
+            <span className="muted b14">Con esto calculamos cuánto te cuesta llenar. Lo puedes cambiar cuando quieras y añadir más vehículos (una moto, otro coche…).</span>
             <CarForm s={s} set={set} hideType />
             <div className="onboard-bar">
               <button type="button" className="btn primary big grow" onClick={() => close(true)}>
