@@ -102,7 +102,7 @@ export function CarForm({ s, set, hideType }: { s: Settings; set: (patch: Partia
         </label>
         <span className="search-box">
           <Icon name="car" size={20} color="#5B6675" />
-          <input id="car-name" type="text" maxLength={40} autoComplete="off" placeholder="Moto, caravana, Seat León…" value={s.carName ?? ""} onChange={(e) => set({ carName: e.target.value })} />
+          <input id="car-name" type="text" maxLength={40} autoComplete="off" placeholder="Coche, moto, caravana…" value={s.carName ?? ""} onChange={(e) => set({ carName: e.target.value })} />
         </span>
       </section>
 

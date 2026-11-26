@@ -230,13 +230,23 @@ export type Garage = { active: string | null; list: Vehicle[] };
 export const garageStore = createPersisted<Garage>("gc.vehicles", { active: null, list: [] });
 export const useGarage = () => usePersisted(garageStore);
 
-const CAR_TYPE_NAME: Record<CarType, string> = { gas: "Gasolina", diesel: "Diésel", glp: "GLP / gas", phev: "Híbrido enchufable", ev: "Eléctrico" };
-export const vehicleName = (name: string | undefined, type: CarType) => name?.trim() || CAR_TYPE_NAME[type] || "Mi vehículo";
+/** Nombre para enseñar; si aún no tiene (no ha guardado ninguno), "Mi vehículo" */
+export const vehicleName = (name: string | undefined, _type?: CarType) => name?.trim() || "Mi vehículo";
 
-function vehicleFrom(s: Settings, id: string): Vehicle {
+/** Si lo deja en blanco: "Vehículo 1", "Vehículo 2"… (el primer número libre; si ya tenía uno automático, lo conserva) */
+function autoName(list: Vehicle[], id: string): string {
+  const mine = list.find((v) => v.id === id)?.name;
+  if (mine && /^Vehículo \d+$/.test(mine)) return mine;
+  const used = new Set(list.filter((v) => v.id !== id).map((v) => v.name));
+  let n = 1;
+  while (used.has(`Vehículo ${n}`)) n++;
+  return `Vehículo ${n}`;
+}
+
+function vehicleFrom(s: Settings, id: string, list: Vehicle[] = garageStore.get().list): Vehicle {
   return {
     id,
-    name: vehicleName(s.carName, s.carType),
+    name: s.carName?.trim() || autoName(list, id),
     carType: s.carType,
     fuels: [...s.fuels],
     fuel: s.fuel,
@@ -256,9 +266,10 @@ export function ensureGarage(): Garage {
   const g = garageStore.get();
   const s = settingsStore.get();
   if (g.list.length || !s.configured) return g;
-  const v = vehicleFrom(s, uid());
+  const v = vehicleFrom(s, uid(), []);
   const next = { active: v.id, list: [v] };
   garageStore.set(next);
+  if (!s.carName?.trim()) settingsStore.set((cur) => ({ ...cur, carName: v.name }));
   refuelsStore.set((l) => l.map((r) => (r.vehicle ? r : { ...r, vehicle: v.id })));
   return next;
 }
@@ -267,7 +278,10 @@ export function ensureGarage(): Garage {
 export function saveActiveVehicle(s: Settings = settingsStore.get()) {
   const g = garageStore.get();
   if (!g.active) return;
-  garageStore.set({ ...g, list: g.list.map((v) => (v.id === g.active ? vehicleFrom(s, v.id) : v)) });
+  const v = vehicleFrom(s, g.active, g.list);
+  garageStore.set({ ...g, list: g.list.map((x) => (x.id === g.active ? v : x)) });
+  // si lo dejó en blanco, el nombre automático ("Vehículo 2") también se enseña en la app
+  if (!s.carName?.trim()) settingsStore.set((cur) => ({ ...cur, carName: v.name }));
 }
 
 /** Cambia de vehículo: se queda guardado y la próxima vez la app abre con este */
