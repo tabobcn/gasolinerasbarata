@@ -9,7 +9,7 @@ import { isNativeApp } from "@/lib/native";
 export const APP_VERSION = "1.2.0";
 
 /** Hoja "Danos tu opinión": un texto y, si quiere, cómo contestarle. Sin cuentas ni datos del móvil. */
-export function FeedbackSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function FeedbackSheet({ open, onClose, onSent }: { open: boolean; onClose: () => void; onSent?: () => void }) {
   const path = usePathname() || "/";
   const [msg, setMsg] = useState("");
   const [contact, setContact] = useState("");
@@ -35,6 +35,7 @@ export function FeedbackSheet({ open, onClose }: { open: boolean; onClose: () =>
       const out = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(out.error || "No se ha podido enviar ahora mismo.");
       setState("sent");
+      onSent?.();
     } catch (e) {
       setState({ error: (e as Error).message || "No se ha podido enviar ahora mismo." });
     }
