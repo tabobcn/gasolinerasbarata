@@ -127,21 +127,41 @@ export type PushResult = { ok: true } | { ok: false; reason: "unsupported" | "de
 
 const NATIVE_BLOCKED = "Tienes los avisos desactivados para Reposta y Carga. Actívalos en Ajustes del móvil › Aplicaciones › Reposta y Carga › Notificaciones y vuelve a probar.";
 
+/**
+ * Si activar los avisos falla en la app, se manda un diagnóstico corto (en qué paso y qué error, sin datos
+ * personales) a las opiniones, para poder arreglarlo sin tener el móvil delante.
+ */
+function reportNative(step: string, err: unknown) {
+  const e = err as Error;
+  const text = `[diagnóstico avisos] paso=${step} · ${e?.name ?? ""}: ${String(e?.message ?? err).slice(0, 300)}`;
+  void fetch("/api/opinion", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ message: text, app: "android", version: "1.2.0", page: "/alertas" }),
+  }).catch(() => {});
+}
+
+const withTimeout = <T,>(p: Promise<T>, ms: number, what: string) =>
+  Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error(`${what}: sin respuesta en ${ms / 1000} s`)), ms))]);
+
 async function enableNative(): Promise<PushResult> {
+  let step = "permiso y código de Firebase";
   try {
-    const token = await nativePushToken(true);
+    const token = await withTimeout(nativePushToken(true), 30_000, "Android");
+    step = "guardar en el servidor";
     const prev = pushStore.get().fcm;
     const f = { token, auth: prev?.auth ?? newSecret() };
     // si Firebase ha cambiado el código, se borra el antiguo del servidor
     if (prev && prev.token !== token) await api({ action: "remove", endpoint: `fcm:${prev.token}`, auth: prev.auth }).catch(() => {});
     const body = payload(fcmKeys(f));
-    await api({ action: "save", ...body });
+    await withTimeout(api({ action: "save", ...body }), 30_000, "Servidor de avisos");
     pushStore.set({ on: true, hash: hashOf(JSON.stringify(body)), syncedAt: Date.now(), fcm: f });
     return { ok: true };
   } catch (e) {
     const err = e as Error;
     if (err.name === "NotAllowedError") return { ok: false, reason: "denied", msg: NATIVE_BLOCKED };
-    return { ok: false, reason: "error", msg: err.message || "No se han podido activar los avisos." };
+    reportNative(step, err);
+    return { ok: false, reason: "error", msg: `${err.message || "No se han podido activar los avisos."} (${step})` };
   }
 }
 

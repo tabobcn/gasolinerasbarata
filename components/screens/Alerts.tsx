@@ -135,6 +135,11 @@ function PushCard() {
           <Icon name="bell" size={16} /> Enviar aviso de prueba
         </button>
       )}
+      {busy && !msg && (
+        <span className="b12 muted" role="status">
+          {push.on ? "Un momento…" : "Activando los avisos… Si Android te pregunta, toca «Permitir»."}
+        </span>
+      )}
       {msg && (
         <span className={`b12 ${msg.ok ? "muted" : "tone-red"}`} role="status">
           {msg.text}

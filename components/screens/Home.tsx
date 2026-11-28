@@ -13,6 +13,7 @@ import { StationRow, stationHref } from "../StationRow";
 import { AlertsBanner } from "../AlertsBanner";
 import { InstallHint } from "../InstallHint";
 import { FeedbackHint } from "../FeedbackHint";
+import { AlertHint } from "../AlertHint";
 import { useIsNativeApp } from "@/lib/native";
 import { Welcome } from "../Welcome";
 import { BottomNav, BrandTile, EmptyState, FuelChips, ModeTabs, Sheet, Skeleton } from "../ui";
@@ -270,6 +271,7 @@ export function Home() {
         )}
 
         {best && <InstallHint />}
+        {best && <AlertHint fuel={fuel} bestPrice={bestPrice} />}
         {best && <FeedbackHint />}
 
         {view && view.others.length > 0 && (
