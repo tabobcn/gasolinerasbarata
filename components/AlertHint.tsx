@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Icon } from "./Icon";
-import { isNativeApp } from "@/lib/native";
+import { nativePushAvailable } from "@/lib/native";
 import { enablePush, usePush } from "@/lib/push";
 import { alertsStore, settingsStore, uid, type PriceAlert } from "@/lib/store";
 import { fmtPrice } from "@/lib/format";
@@ -22,7 +22,7 @@ export function AlertHint({ fuel, bestPrice }: { fuel: FuelKey; bestPrice: numbe
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
   useEffect(() => {
     try {
-      setShow(isNativeApp() && localStorage.getItem(KEY) !== "1");
+      setShow(nativePushAvailable() && localStorage.getItem(KEY) !== "1");
     } catch {
       /* sin almacenamiento: no se muestra */
     }

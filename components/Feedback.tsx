@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Icon } from "./Icon";
 import { Sheet } from "./ui";
-import { isNativeApp } from "@/lib/native";
+import { appVersion, isNativeApp } from "@/lib/native";
 
 export const APP_VERSION = "1.2.0";
 
@@ -30,7 +30,7 @@ export function FeedbackSheet({ open, onClose, onSent }: { open: boolean; onClos
       const res = await fetch("/api/opinion", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ message: msg, contact, app: isNativeApp() ? "android" : "web", version: APP_VERSION, page: path }),
+        body: JSON.stringify({ message: msg, contact, app: isNativeApp() ? "android" : "web", version: appVersion() ?? APP_VERSION, page: path }),
       });
       const out = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(out.error || "No se ha podido enviar ahora mismo.");

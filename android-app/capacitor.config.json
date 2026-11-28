@@ -15,16 +15,9 @@
   "android": {
     "backgroundColor": "#F4F6F8",
     "allowMixedContent": false,
-    "appendUserAgent": "RepostaYCargaApp/1.2.0"
+    "appendUserAgent": "RepostaYCargaApp/1.2.1"
   },
   "plugins": {
-    "PushNotifications": {
-      "presentationOptions": [
-        "badge",
-        "sound",
-        "alert"
-      ]
-    },
     "SystemBars": {
       "style": "LIGHT",
       "insetsHandling": "css"

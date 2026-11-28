@@ -10,10 +10,7 @@ export function ShareButton({ title, text }: { title: string; text: string }) {
   const share = async () => {
     const url = window.location.href;
     try {
-      if (isNativeApp()) {
-        await nativeShare(title, text, url);
-        return;
-      }
+      if (isNativeApp() && (await nativeShare(title, text, url))) return;
       if (navigator.share) {
         await navigator.share({ title, text, url });
         return;

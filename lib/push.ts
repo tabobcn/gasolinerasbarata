@@ -3,7 +3,7 @@
 import { alertsStore, createPersisted, favoritesStore, lastLocationStore, placesStore, settingsStore, usePersisted } from "./store";
 import { discountsStore } from "./discountStore";
 import { encodeDiscounts } from "./discounts";
-import { isNativeApp, nativePushPermission, nativePushToken, nativePushUnregister } from "./native";
+import { appVersion, isNativeApp, nativePushAvailable, nativePushPermission, nativePushToken, nativePushUnregister } from "./native";
 
 /**
  * Avisos push: que las alertas de precio lleguen con la app cerrada.
@@ -25,11 +25,12 @@ let gen = 0;
 export const pushStore = createPersisted<PushPrefs>("gc.push", { on: false, hash: "", syncedAt: 0 }, true);
 export const usePush = () => usePersisted(pushStore);
 
-export type PushSupport = "ok" | "ios-install" | "unsupported";
+export type PushSupport = "ok" | "ios-install" | "unsupported" | "update-app";
 
 export function pushSupport(): PushSupport {
   if (typeof window === "undefined") return "unsupported";
-  if (isNativeApp()) return "ok"; // en la app de Android los avisos van por Firebase
+  if (nativePushAvailable()) return "ok"; // en la app de Android los avisos van por Firebase
+  if (isNativeApp()) return "update-app"; // app 1.2.0: no sabía dar avisos
   if ("serviceWorker" in navigator && "PushManager" in window && "Notification" in window) return "ok";
   const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   return ios ? "ios-install" : "unsupported";
@@ -137,7 +138,7 @@ function reportNative(step: string, err: unknown) {
   void fetch("/api/opinion", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ message: text, app: "android", version: "1.2.0", page: "/alertas" }),
+    body: JSON.stringify({ message: text, app: "android", version: appVersion() ?? "1.2", page: "/alertas" }),
   }).catch(() => {});
 }
 
@@ -147,7 +148,7 @@ const withTimeout = <T,>(p: Promise<T>, ms: number, what: string) =>
 async function enableNative(): Promise<PushResult> {
   let step = "permiso y código de Firebase";
   try {
-    const token = await withTimeout(nativePushToken(true), 30_000, "Android");
+    const token = await withTimeout(nativePushToken(true), 70_000, "Android");
     step = "guardar en el servidor";
     const prev = pushStore.get().fcm;
     const f = { token, auth: prev?.auth ?? newSecret() };
@@ -166,7 +167,8 @@ async function enableNative(): Promise<PushResult> {
 }
 
 export async function enablePush(): Promise<PushResult> {
-  if (isNativeApp()) return enableNative();
+  if (nativePushAvailable()) return enableNative();
+  if (isNativeApp()) return { ok: false, reason: "unsupported", msg: "Actualiza Reposta y Carga desde Google Play para activar los avisos." };
   if (pushSupport() !== "ok") return { ok: false, reason: "unsupported", msg: "Este navegador no admite avisos con la app cerrada." };
   try {
     const perm = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
@@ -191,7 +193,7 @@ const removeOnServer = (k: { endpoint: string; auth: string }) => api({ action: 
 
 export async function disablePush(): Promise<void> {
   gen++;
-  if (isNativeApp()) {
+  if (nativePushAvailable()) {
     const f = pushStore.get().fcm;
     pushStore.set({ on: false, hash: "", syncedAt: 0 });
     if (!f) return;
@@ -225,7 +227,7 @@ export async function disablePush(): Promise<void> {
 
 export async function testPush(): Promise<PushResult> {
   try {
-    if (isNativeApp()) {
+    if (nativePushAvailable()) {
       const f = pushStore.get().fcm;
       if (!f) return { ok: false, reason: "error", msg: "No encontramos la suscripción. Desactiva y vuelve a activar los avisos." };
       const k = fcmKeys(f);
@@ -259,7 +261,8 @@ export async function syncPush(): Promise<void> {
     }
     return;
   }
-  if (isNativeApp()) return syncNative(p);
+  if (nativePushAvailable()) return syncNative(p);
+  if (isNativeApp()) return;
   if (pushSupport() !== "ok") return;
   const mine = gen;
   try {

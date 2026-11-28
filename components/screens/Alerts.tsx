@@ -95,7 +95,9 @@ function PushCard() {
           Las alertas se comprueban cada vez que abres la app.{" "}
           {support === "ios-install"
             ? "Para que te avisemos con la app cerrada en iPhone, añádela a la pantalla de inicio (Compartir → Añadir a pantalla de inicio) y activa los avisos desde ahí."
-            : "Este navegador no admite avisos con la app cerrada."}
+            : support === "update-app"
+              ? "Para que te avisemos con la app cerrada, actualiza Reposta y Carga desde Google Play."
+              : "Este navegador no admite avisos con la app cerrada."}
         </span>
       </div>
     );
