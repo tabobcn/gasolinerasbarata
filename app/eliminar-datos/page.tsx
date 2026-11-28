@@ -25,12 +25,12 @@ export default function Page() {
             1. Lo que está en tu móvil
           </h2>
           <p className="b15">
-            Tu coche, favoritas, Casa y Trabajo, alertas, descuentos y repostajes se guardan solo en el navegador de tu móvil. Para borrarlo todo:
+            Tu coche, favoritas, Casa y Trabajo, alertas, descuentos y repostajes se guardan solo en tu móvil (en la app o en el navegador). Para borrarlo todo:
           </p>
           <ul className="legal-list">
             <li>
-              <strong>App de Android:</strong> abre Chrome › menú ⋮ › Configuración › Configuración de sitios › Todos los sitios › {host} › Borrar datos.
-              Desinstalar la app también ayuda, pero los datos viven en Chrome.
+              <strong>App de Android:</strong> Ajustes del móvil › Aplicaciones › Reposta y Carga › Almacenamiento › Borrar datos. Desinstalar la app también lo
+              borra todo.
             </li>
             <li>
               <strong>En el navegador (móvil u ordenador):</strong> en los ajustes del navegador, borra los datos del sitio {host}.
@@ -43,7 +43,8 @@ export default function Page() {
             2. Lo que está en nuestro servidor (solo si activaste los avisos)
           </h2>
           <p className="b15">
-            Si activaste los avisos con la app cerrada, guardamos la dirección de avisos de tu navegador junto con tus alertas, descuentos y favoritas. Para
+            Si activaste los avisos con la app cerrada, guardamos la dirección de avisos de tu navegador (o, en la app de Android, el código de avisos de
+            Firebase) junto con tus alertas, descuentos y favoritas. Para
             borrarlo, entra en <Link href="/alertas">Alertas</Link> y desactiva los avisos: se elimina al momento de nuestra base de datos. Si ya no tienes la
             app, se borra solo cuando tu navegador da de baja la suscripción.
           </p>
@@ -60,7 +61,7 @@ export default function Page() {
         </section>
 
         <p className="b15">
-          Los registros técnicos del alojamiento (dirección IP, página y hora) no van asociados a ti y se borran solos. Más detalles en{" "}
+          Si nos mandaste tu opinión, escríbenos y la borramos. Los registros técnicos del alojamiento (dirección IP, página y hora) no van asociados a ti y se borran solos. Más detalles en{" "}
           <Link href="/privacidad">Fuentes y privacidad</Link>.
         </p>
 

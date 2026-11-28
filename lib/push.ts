@@ -3,6 +3,7 @@
 import { alertsStore, createPersisted, favoritesStore, lastLocationStore, placesStore, settingsStore, usePersisted } from "./store";
 import { discountsStore } from "./discountStore";
 import { encodeDiscounts } from "./discounts";
+import { isNativeApp, nativePushPermission, nativePushToken, nativePushUnregister } from "./native";
 
 /**
  * Avisos push: que las alertas de precio lleguen con la app cerrada.
@@ -10,7 +11,14 @@ import { encodeDiscounts } from "./discounts";
  * los precios cada media hora. No se manda ningún dato personal: solo la dirección push que da el navegador.
  */
 /** rm: baja que no se pudo enviar al servidor (se reintenta al abrir la app) */
-export type PushPrefs = { on: boolean; hash: string; syncedAt: number; rm?: { endpoint: string; auth: string } };
+export type PushPrefs = {
+  on: boolean;
+  hash: string;
+  syncedAt: number;
+  rm?: { endpoint: string; auth: string };
+  /** App de Android: código de avisos de Firebase y la clave de este móvil para poder cambiar o borrar su suscripción */
+  fcm?: { token: string; auth: string };
+};
 
 /** Sube cada vez que se desactivan los avisos: una sincronización que estaba a medias no puede volver a activarlos */
 let gen = 0;
@@ -21,6 +29,7 @@ export type PushSupport = "ok" | "ios-install" | "unsupported";
 
 export function pushSupport(): PushSupport {
   if (typeof window === "undefined") return "unsupported";
+  if (isNativeApp()) return "ok"; // en la app de Android los avisos van por Firebase
   if ("serviceWorker" in navigator && "PushManager" in window && "Notification" in window) return "ok";
   const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   return ios ? "ios-install" : "unsupported";
@@ -61,10 +70,19 @@ async function api<T>(body: Record<string, unknown>): Promise<T> {
   return out;
 }
 
-const keysOf = (sub: PushSubscription) => ({ endpoint: sub.endpoint, p256dh: b64u(sub.getKey("p256dh")), auth: b64u(sub.getKey("auth")) });
+type Keys = { endpoint: string; p256dh: string; auth: string };
+const keysOf = (sub: PushSubscription): Keys => ({ endpoint: sub.endpoint, p256dh: b64u(sub.getKey("p256dh")), auth: b64u(sub.getKey("auth")) });
+
+/** App de Android: la "suscripción" es el código de Firebase, con una clave propia de este móvil */
+const fcmKeys = (f: { token: string; auth: string }): Keys => ({ endpoint: `fcm:${f.token}`, p256dh: "fcm", auth: f.auth });
+function newSecret(): string {
+  const b = new Uint8Array(18);
+  crypto.getRandomValues(b);
+  return b64u(b.buffer);
+}
 
 /** Lo que necesita el servidor para comprobar las alertas de este móvil */
-function payload(sub: PushSubscription) {
+function payload(sub: PushSubscription | Keys) {
   const places = placesStore.get();
   const last = lastLocationStore.get();
   const alerts = alertsStore.get();
@@ -81,7 +99,8 @@ function payload(sub: PushSubscription) {
   const st = settingsStore.get();
   const favFuels = [...new Set([...alerts.filter((a) => a.favDrop).map((a) => a.fuel), ...(st.favAlerts ? [st.fuel] : [])])];
   const favs = favFuels.length ? favoritesStore.get().slice(0, 30).map((f) => ({ id: f.id, m: f.m })) : [];
-  return { sub: keysOf(sub), alerts: out.slice(0, 10), disc: encodeDiscounts(discountsStore.get()), favs, favFuels };
+  const keys = "getKey" in sub ? keysOf(sub) : sub;
+  return { sub: keys, alerts: out.slice(0, 10), disc: encodeDiscounts(discountsStore.get()), favs, favFuels };
 }
 
 async function subscribe(reg: ServiceWorkerRegistration): Promise<PushSubscription> {
@@ -106,7 +125,28 @@ const BLOCKED = "Tienes los avisos bloqueados para esta web. Actívalos en los a
 
 export type PushResult = { ok: true } | { ok: false; reason: "unsupported" | "denied" | "error"; msg: string };
 
+const NATIVE_BLOCKED = "Tienes los avisos desactivados para Reposta y Carga. Actívalos en Ajustes del móvil › Aplicaciones › Reposta y Carga › Notificaciones y vuelve a probar.";
+
+async function enableNative(): Promise<PushResult> {
+  try {
+    const token = await nativePushToken(true);
+    const prev = pushStore.get().fcm;
+    const f = { token, auth: prev?.auth ?? newSecret() };
+    // si Firebase ha cambiado el código, se borra el antiguo del servidor
+    if (prev && prev.token !== token) await api({ action: "remove", endpoint: `fcm:${prev.token}`, auth: prev.auth }).catch(() => {});
+    const body = payload(fcmKeys(f));
+    await api({ action: "save", ...body });
+    pushStore.set({ on: true, hash: hashOf(JSON.stringify(body)), syncedAt: Date.now(), fcm: f });
+    return { ok: true };
+  } catch (e) {
+    const err = e as Error;
+    if (err.name === "NotAllowedError") return { ok: false, reason: "denied", msg: NATIVE_BLOCKED };
+    return { ok: false, reason: "error", msg: err.message || "No se han podido activar los avisos." };
+  }
+}
+
 export async function enablePush(): Promise<PushResult> {
+  if (isNativeApp()) return enableNative();
   if (pushSupport() !== "ok") return { ok: false, reason: "unsupported", msg: "Este navegador no admite avisos con la app cerrada." };
   try {
     const perm = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
@@ -131,6 +171,19 @@ const removeOnServer = (k: { endpoint: string; auth: string }) => api({ action: 
 
 export async function disablePush(): Promise<void> {
   gen++;
+  if (isNativeApp()) {
+    const f = pushStore.get().fcm;
+    pushStore.set({ on: false, hash: "", syncedAt: 0 });
+    if (!f) return;
+    const k = fcmKeys(f);
+    const done = await removeOnServer(k)
+      .catch(() => removeOnServer(k))
+      .then(() => true)
+      .catch(() => false);
+    if (!done && !pushStore.get().on) pushStore.set({ on: false, hash: "", syncedAt: 0, rm: { endpoint: k.endpoint, auth: k.auth } });
+    await nativePushUnregister();
+    return;
+  }
   pushStore.set({ on: false, hash: "", syncedAt: 0 });
   try {
     const reg = await navigator.serviceWorker.getRegistration();
@@ -152,6 +205,13 @@ export async function disablePush(): Promise<void> {
 
 export async function testPush(): Promise<PushResult> {
   try {
+    if (isNativeApp()) {
+      const f = pushStore.get().fcm;
+      if (!f) return { ok: false, reason: "error", msg: "No encontramos la suscripción. Desactiva y vuelve a activar los avisos." };
+      const k = fcmKeys(f);
+      await api({ action: "test", endpoint: k.endpoint, auth: k.auth });
+      return { ok: true };
+    }
     const reg = await navigator.serviceWorker.getRegistration();
     const sub = await reg?.pushManager.getSubscription();
     if (!sub) return { ok: false, reason: "error", msg: "No encontramos la suscripción. Desactiva y vuelve a activar los avisos." };
@@ -179,6 +239,7 @@ export async function syncPush(): Promise<void> {
     }
     return;
   }
+  if (isNativeApp()) return syncNative(p);
   if (pushSupport() !== "ok") return;
   const mine = gen;
   try {
@@ -213,6 +274,36 @@ export async function syncPush(): Promise<void> {
       return;
     }
     pushStore.set({ on: true, hash, syncedAt: Date.now() });
+  } catch {
+    /* sin conexión: se reintenta la próxima vez que se abra la app */
+  }
+}
+
+/** App de Android: igual que en la web, pero con el código de Firebase (que Firebase puede cambiar de vez en cuando) */
+async function syncNative(p: PushPrefs): Promise<void> {
+  const mine = gen;
+  try {
+    if ((await nativePushPermission()) !== "granted") {
+      // el usuario ha quitado el permiso en Android: se apaga y se borra del servidor
+      const f = pushStore.get().fcm;
+      pushStore.set({ on: false, hash: "", syncedAt: 0 });
+      if (f) await removeOnServer(fcmKeys(f)).catch(() => {});
+      return;
+    }
+    const token = await nativePushToken(false);
+    if (mine !== gen || !pushStore.get().on) return;
+    const prev = p.fcm;
+    const f = { token, auth: prev?.auth ?? newSecret() };
+    if (prev && prev.token !== token) await removeOnServer(fcmKeys(prev)).catch(() => {});
+    const body = payload(fcmKeys(f));
+    const hash = hashOf(JSON.stringify(body));
+    if (prev?.token === token && hash === p.hash && Date.now() - p.syncedAt < 7 * 86_400_000) return;
+    await api({ action: "save", ...body });
+    if (mine !== gen || !pushStore.get().on) {
+      if (!pushStore.get().on) await removeOnServer(body.sub).catch(() => {});
+      return;
+    }
+    pushStore.set({ on: true, hash, syncedAt: Date.now(), fcm: f });
   } catch {
     /* sin conexión: se reintenta la próxima vez que se abra la app */
   }

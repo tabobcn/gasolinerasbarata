@@ -16,6 +16,7 @@ import type { StationsResponse } from "@/lib/types";
 import { useDiscounts } from "@/lib/discountStore";
 import { applyDiscounts } from "@/lib/discounts";
 import { disablePush, enablePush, pushSupport, testPush, usePush, type PushSupport } from "@/lib/push";
+import { useIsNativeApp } from "@/lib/native";
 
 /* ---------- Lista de alertas ---------- */
 
@@ -79,6 +80,7 @@ function FavCard() {
 /** Interruptor de avisos con la app cerrada (push) */
 function PushCard() {
   const [push] = usePush();
+  const inApp = useIsNativeApp();
   const [support, setSupport] = useState<PushSupport | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
@@ -143,7 +145,7 @@ function PushCard() {
           Qué guardamos para poder avisarte
         </Link>
       )}
-      {!push.on && (
+      {!push.on && !inApp && (
         <Link href="/instalar" className="b12 green">
           Cómo instalar la app y activar los avisos
         </Link>

@@ -5,8 +5,10 @@
 //  POST ?action=test    → manda un aviso de prueba
 //  POST ?action=check   → (solo pg_cron, con x-sync-token) comprueba precios y manda los avisos
 // No guarda datos personales: la dirección push que da el navegador, las alertas y los descuentos.
+// La app de Android manda en vez de la dirección push el código de Firebase ("fcm:…"): se guarda igual y se avisa por Firebase.
 import { createClient } from "jsr:@supabase/supabase-js@2.119.0";
 import { generateVapid, sendPush, type PushTarget, type Vapid } from "./webpush.ts";
+import { sendFcm } from "./fcm.ts";
 
 const SITE = (Deno.env.get("SITE_URL") ?? "https://www.repostaycarga.es").replace(/\/$/, "");
 const MAX_SUBS = 5000;
@@ -54,11 +56,27 @@ const B64 = /^[A-Za-z0-9_-]+$/;
 const str = (v: unknown, max: number) => (typeof v === "string" && v.length > 0 && v.length <= max ? v : null);
 const inSpain = (lat: number, lon: number) => lat >= 27 && lat <= 44.5 && lon >= -18.5 && lon <= 4.6;
 
+/** Código de Firebase de la app de Android */
+const FCM_TOKEN = /^fcm:[A-Za-z0-9_:-]{100,400}$/;
+const isFcm = (endpoint: string) => endpoint.startsWith("fcm:");
+
+/** Manda un aviso por el camino que toque: Firebase (app de Android) o avisos web (navegador) */
+function deliver(t: Sub, payload: Record<string, string>, v: Vapid, ttl?: number): Promise<number> {
+  if (isFcm(t.endpoint)) {
+    return sendFcm(t.endpoint.slice(4), { title: payload.title ?? "", body: payload.body ?? "", url: payload.url ?? "/alertas", tag: payload.tag ?? "aviso" }, ttl);
+  }
+  return sendPush(t, payload, v, SITE, ttl);
+}
+
 function parseSub(raw: unknown): Sub | null {
   const s = raw as Record<string, unknown> | null;
   const endpoint = str(s?.endpoint, 2000);
   const p256dh = str(s?.p256dh, 120);
   const auth = str(s?.auth, 40);
+  if (endpoint && isFcm(endpoint)) {
+    if (!FCM_TOKEN.test(endpoint) || p256dh !== "fcm" || !auth || !B64.test(auth) || auth.length < 16) return null;
+    return { endpoint, p256dh, auth };
+  }
   if (!endpoint || !p256dh || !auth || !B64.test(p256dh) || !B64.test(auth) || p256dh.length < 80 || auth.length < 16) return null;
   try {
     const u = new URL(endpoint);
@@ -132,8 +150,15 @@ async function save(body: Record<string, unknown>) {
     const { count, error: countErr } = await supa.from("push_subs").select("id", { count: "exact", head: true });
     if (countErr || (count ?? 0) >= MAX_SUBS) return json({ error: "Ahora mismo no se pueden activar más avisos" }, 503);
     // Una suscripción nueva tiene que demostrar que existe: se le manda un aviso y solo se guarda si el servicio push lo acepta
-    const probe = await sendPush(sub, { title: "Avisos activados", body: "Te avisaremos cuando se cumpla una de tus alertas de precio.", url: "/alertas", tag: "alta" }, await vapid(), SITE, 600).catch(() => 0);
-    if (!(probe >= 200 && probe < 300)) return json({ error: "El navegador no ha confirmado la suscripción. Desactiva y vuelve a activar los avisos." }, 400);
+    const probe = await deliver(sub, { title: "Avisos activados", body: "Te avisaremos cuando se cumpla una de tus alertas de precio.", url: "/alertas", tag: "alta" }, await vapid(), 600).catch(() => 0);
+    if (!(probe >= 200 && probe < 300)) {
+      const msg = isFcm(sub.endpoint)
+        ? probe === 503
+          ? "Los avisos de la app aún no están disponibles. Inténtalo más tarde."
+          : "Android no ha confirmado los avisos. Desactiva y vuelve a activar los avisos."
+        : "El navegador no ha confirmado la suscripción. Desactiva y vuelve a activar los avisos.";
+      return json({ error: msg, code: probe }, 400);
+    }
   }
   const row = {
     endpoint: sub.endpoint,
@@ -181,14 +206,14 @@ async function test(body: Record<string, unknown>) {
   const row = await findOwn(body);
   if (!row) return json({ error: "No encontramos tu suscripción. Desactiva y vuelve a activar los avisos." }, 404);
   if (row.last_test && Date.now() - Date.parse(row.last_test) < 20_000) return json({ error: "Espera unos segundos antes de probar otra vez" }, 429);
-  const status = await sendPush(row, { title: "Avisos activados", body: "Así te llegarán las alertas de precio aunque tengas la app cerrada.", url: "/alertas", tag: "prueba" }, await vapid(), SITE, 600).catch(() => 0);
+  const status = await deliver(row, { title: "Avisos activados", body: "Así te llegarán las alertas de precio aunque tengas la app cerrada.", url: "/alertas", tag: "prueba" }, await vapid(), 600).catch(() => 0);
   if (status === 404 || status === 410) {
     await supa.from("push_subs").delete().eq("id", row.id);
     return json({ error: "La suscripción había caducado. Desactiva y vuelve a activar los avisos." }, 410);
   }
   await supa.from("push_subs").update({ last_test: new Date().toISOString(), last_status: status }).eq("id", row.id);
   const ok = status >= 200 && status < 300;
-  return json(ok ? { ok: true } : { error: `El servicio de avisos del navegador ha respondido ${status || "sin conexión"}` }, ok ? 200 : 502);
+  return json(ok ? { ok: true } : { error: `El servicio de avisos ha respondido ${status || "sin conexión"}` }, ok ? 200 : 502);
 }
 
 // ---------- Comprobación periódica ----------
@@ -257,7 +282,7 @@ async function checkOne(row: any, v: Vapid): Promise<{ sent: number; gone?: bool
   let sent = 0;
   let status: number | null = null;
   for (const q of queue) {
-    status = await sendPush(row, q.payload, v, SITE).catch(() => 0);
+    status = await deliver(row, q.payload, v).catch(() => 0);
     if (status === 404 || status === 410) {
       await supa.from("push_subs").delete().eq("id", row.id); // el navegador ya no tiene esa suscripción
       return { sent, gone: true };

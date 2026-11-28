@@ -1,0 +1,33 @@
+{
+  "appId": "es.repostaycarga.app",
+  "appName": "Reposta y Carga",
+  "webDir": "www",
+  "server": {
+    "url": "https://www.repostaycarga.es",
+    "hostname": "www.repostaycarga.es",
+    "androidScheme": "https",
+    "allowNavigation": [
+      "www.repostaycarga.es",
+      "repostaycarga.es"
+    ],
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "backgroundColor": "#F4F6F8",
+    "allowMixedContent": false,
+    "appendUserAgent": "RepostaYCargaApp/1.2.0"
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
+    },
+    "SystemBars": {
+      "style": "LIGHT",
+      "insetsHandling": "css"
+    }
+  }
+}

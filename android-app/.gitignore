@@ -1,0 +1,17 @@
+node_modules/
+# Secretos y archivos de cada ordenador: nunca al repositorio
+android/keystore.properties
+*.keystore
+*.jks
+android/app/google-services.json
+android/local.properties
+# Lo que se genera al compilar
+android/app/build/
+android/build/
+android/.gradle/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/capacitor-cordova-android-plugins/
+*.aab
+*.apk

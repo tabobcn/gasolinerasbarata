@@ -92,6 +92,21 @@ export default function Page() {
             Se borra al desactivar los avisos en la pantalla de Alertas, y también sola cuando tu navegador da de baja la suscripción. El aviso viaja cifrado
             por el servicio de tu navegador (Google, Apple, Mozilla o Microsoft).
           </p>
+          <p className="b15">
+            <strong>En la app de Android</strong> los avisos llegan por Firebase Cloud Messaging (Google): en lugar de la dirección del navegador guardamos el
+            código de avisos que Firebase da a tu móvil, con lo mismo de arriba. Google recibe ese código y el texto del aviso para entregarlo. No usamos
+            Firebase para estadísticas ni publicidad.
+          </p>
+        </section>
+
+        <section className="stack-8" aria-labelledby="opiniones">
+          <h2 className="h2" id="opiniones">
+            Si nos mandas tu opinión
+          </h2>
+          <p className="b15">
+            Con «Danos tu opinión» guardamos (en Supabase, en la Unión Europea) lo que escribes, el contacto si decides dejarlo, la página en la que estabas, la
+            versión de la app y si era la app o la web. Solo lo usamos para mejorar la app y contestarte. Lo borramos cuando ya no hace falta o si nos lo pides.
+          </p>
         </section>
 
         <section className="stack-8" aria-labelledby="terceros">
@@ -179,7 +194,7 @@ export default function Page() {
         </section>
 
         <p className="source">
-          Última revisión: 26 de noviembre de 2026. <Link href="/aviso-legal">Aviso legal</Link> · <Link href="/soporte">Ayuda y contacto</Link> ·{" "}
+          Última revisión: 28 de noviembre de 2026. <Link href="/aviso-legal">Aviso legal</Link> · <Link href="/soporte">Ayuda y contacto</Link> ·{" "}
           <Link href="/">Volver a la app</Link>
         </p>
       </div>

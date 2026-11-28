@@ -1,0 +1,17 @@
+{
+  "name": "reposta-y-carga-android",
+  "private": true,
+  "description": "App Android de Reposta y Carga: carga www.repostaycarga.es dentro de la app (Capacitor) y añade los avisos con Firebase",
+  "scripts": {
+    "sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.2",
+    "@capacitor/core": "8.6.2",
+    "@capacitor/push-notifications": "8.1.3",
+    "@capacitor/share": "8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.2"
+  }
+}

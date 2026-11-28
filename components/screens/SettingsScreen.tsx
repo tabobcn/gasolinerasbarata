@@ -9,6 +9,8 @@ import { CAR_TYPES } from "../CarForm";
 import { knownBrandList, OTHER_BRANDS } from "@/lib/brands";
 import { useSettings, type NavApp } from "@/lib/store";
 import { CONTACT_EMAIL, contactHref } from "@/lib/config";
+import { useIsNativeApp } from "@/lib/native";
+import { FeedbackSheet } from "../Feedback";
 
 const RADII = [2, 5, 10, 20];
 const NAVS: { id: NavApp | null; label: string }[] = [
@@ -30,6 +32,8 @@ const BRANDS = [...knownBrandList(), { key: OTHER_BRANDS, name: "Otras (low cost
 export function SettingsScreen() {
   const router = useRouter();
   const [s, setS] = useSettings();
+  const inApp = useIsNativeApp();
+  const [fb, setFb] = useState(false);
   const hidden = s.hiddenBrands ?? [];
   const only = s.onlyBrands ?? [];
   // Dos formas de elegir: quitar las que no quieres, o quedarte solo con las que quieres
@@ -137,6 +141,14 @@ export function SettingsScreen() {
         </section>
 
         <section className="card set-list">
+          <button type="button" className="set-link fb-row" onClick={() => setFb(true)}>
+            <Icon name="star" size={20} />
+            <span className="col-2 grow min0">
+              <span className="b15">Danos tu opinión</span>
+              <span className="muted b12 ellipsis">Qué mejorarías, qué falla o qué echas de menos</span>
+            </span>
+            <Icon name="chevronRight" size={18} color="#5B6675" />
+          </button>
           <a href={contactHref("Reposta y Carga: consulta")} className="set-link">
             <Icon name="share" size={20} />
             <span className="col-2 grow min0">
@@ -145,7 +157,7 @@ export function SettingsScreen() {
             </span>
             <Icon name="chevronRight" size={18} color="#5B6675" />
           </a>
-          {LINKS.map((l) => (
+          {LINKS.filter((l) => !(inApp && l.href === "/instalar")).map((l) => (
             <Link key={l.href} href={l.href} className="set-link">
               <Icon name={l.icon} size={20} />
               <span className="b15 grow">{l.label}</span>
@@ -154,6 +166,7 @@ export function SettingsScreen() {
           ))}
         </section>
       </div>
+      <FeedbackSheet open={fb} onClose={() => setFb(false)} />
       <BottomNav />
     </div>
   );

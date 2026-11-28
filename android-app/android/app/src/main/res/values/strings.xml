@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Reposta y Carga</string>
+    <string name="title_activity_main">Reposta y Carga</string>
+    <string name="package_name">es.repostaycarga.app</string>
+    <string name="custom_url_scheme">es.repostaycarga.app</string>
+</resources>

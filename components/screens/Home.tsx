@@ -12,6 +12,8 @@ import { useDesktop } from "@/lib/useDesktop";
 import { StationRow, stationHref } from "../StationRow";
 import { AlertsBanner } from "../AlertsBanner";
 import { InstallHint } from "../InstallHint";
+import { FeedbackHint } from "../FeedbackHint";
+import { useIsNativeApp } from "@/lib/native";
 import { Welcome } from "../Welcome";
 import { BottomNav, BrandTile, EmptyState, FuelChips, ModeTabs, Sheet, Skeleton } from "../ui";
 import { Icon } from "../Icon";
@@ -33,6 +35,7 @@ export function Home() {
   const { loc, status, ready, locate, setPlace } = useLocation();
   const desktop = useDesktop();
   const [settings, setSettings] = useSettings();
+  const inApp = useIsNativeApp();
   const shows = useShows();
   const router = useRouter();
   // Un eléctrico no usa gasolineras: su pantalla de inicio son los cargadores
@@ -267,6 +270,7 @@ export function Home() {
         )}
 
         {best && <InstallHint />}
+        {best && <FeedbackHint />}
 
         {view && view.others.length > 0 && (
           <>
@@ -293,8 +297,12 @@ export function Home() {
             </Link>
             {" · "}
             <Link href="/privacidad">Fuentes y privacidad</Link>
-            {" · "}
-            <Link href="/instalar">Instalar la app y avisos</Link>
+            {!inApp && (
+              <>
+                {" · "}
+                <Link href="/instalar">Instalar la app y avisos</Link>
+              </>
+            )}
           </p>
         )}
       </div>

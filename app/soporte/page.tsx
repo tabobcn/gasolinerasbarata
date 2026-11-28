@@ -25,7 +25,7 @@ const FAQ = [
   },
   {
     q: "No me llegan los avisos de precio.",
-    a: "Entra en Alertas y comprueba que los avisos están activados. En Android, mira también que las notificaciones de la app no estén desactivadas en los ajustes del móvil y que el ahorro de batería no la cierre.",
+    a: "Entra en Alertas y comprueba que los avisos están activados. En Android, mira también en Ajustes del móvil › Aplicaciones › Reposta y Carga › Notificaciones que estén permitidas y que el ahorro de batería no cierre la app.",
   },
   {
     q: "¿Cuánto tardo en llegar a una gasolinera?",
