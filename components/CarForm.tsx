@@ -33,8 +33,13 @@ function TankInput({ value, onChange }: { value: number; onChange: (n: number) =
     if (Number.isFinite(n) && n >= 1 && n <= 200) onChange(n);
     else setText(String(value));
   };
+  const step = (d: number) => onChange(Math.min(200, Math.max(1, value + d)));
   return (
-    <span className="tank-input">
+    <span className="stepper">
+      <button type="button" aria-label="Un litro menos" onClick={() => step(-1)} disabled={value <= 1}>
+        −
+      </button>
+      <span className="tank-input">
       <input
         id="car-tank"
         type="text"
@@ -50,7 +55,11 @@ function TankInput({ value, onChange }: { value: number; onChange: (n: number) =
         onBlur={(e) => commit(e.target.value)}
         aria-describedby="car-tank-unit"
       />
-      <span id="car-tank-unit">litros</span>
+      <span id="car-tank-unit">L</span>
+      </span>
+      <button type="button" aria-label="Un litro más" onClick={() => step(1)} disabled={value >= 200}>
+        +
+      </button>
     </span>
   );
 }

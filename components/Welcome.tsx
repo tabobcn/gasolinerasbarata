@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CAR_TYPES, CarForm, cleanCar } from "./CarForm";
-import { Icon } from "./Icon";
+import { Icon, type IconName } from "./Icon";
 import { useLocation } from "./LocationProvider";
 import { APP_NAME } from "@/lib/config";
 import { DEFAULT_SETTINGS, onboardingDone, onboardingPending, settingsStore, type Settings } from "@/lib/store";
@@ -12,6 +12,15 @@ import { DEFAULT_SETTINGS, onboardingDone, onboardingPending, settingsStore, typ
  * Bienvenida de la primera vez, a pantalla completa: qué coche llevas y para qué es la ubicación.
  * Se puede saltar; todo se cambia después en "Mi coche" y en Ajustes.
  */
+/** Icono y color de cada tipo de vehículo en la bienvenida */
+const TYPE_ICON: Record<string, { icon: IconName; tone: string }> = {
+  gas: { icon: "pump", tone: "green" },
+  diesel: { icon: "pump", tone: "ink" },
+  phev: { icon: "plug", tone: "blue" },
+  ev: { icon: "bolt", tone: "blue" },
+  glp: { icon: "pump", tone: "amber" },
+};
+
 export function Welcome() {
   const router = useRouter();
   const { locate } = useLocation();
@@ -49,17 +58,46 @@ export function Welcome() {
       <div className="onboard-in stack-16">
         {step === 0 ? (
           <>
-            <img src="/icon.svg" alt="" width={64} height={64} className="onboard-logo" />
+            <div className="onboard-hero">
+              <img src="/icon.svg" alt="" width={56} height={56} className="onboard-logo" />
+              <div className="col-2">
+                <span className="onboard-name">{APP_NAME}</span>
+                <span className="b14 onboard-tag">Gasolina y carga al mejor precio, cerca de ti</span>
+              </div>
+            </div>
+            <ul className="onboard-benefits">
+              <li>
+                <span className="soft-icon green" aria-hidden="true">
+                  <Icon name="pump" size={18} />
+                </span>
+                La gasolinera más barata a tu alrededor, con precios oficiales
+              </li>
+              <li>
+                <span className="soft-icon blue" aria-hidden="true">
+                  <Icon name="bolt" size={18} />
+                </span>
+                Cargadores eléctricos con precio y si están libres
+              </li>
+              <li>
+                <span className="soft-icon amber" aria-hidden="true">
+                  <Icon name="bell" size={18} />
+                </span>
+                Avisos cuando baja el precio, aunque tengas la app cerrada
+              </li>
+            </ul>
             <div className="stack-8">
-              <h2 className="h1 big" id="onboard-title">
-                ¿Qué coche llevas?
+              <h2 className="h2" id="onboard-title">
+                ¿Qué vehículo llevas?
               </h2>
-              <span className="muted b15">Así {APP_NAME} te enseña solo lo que te sirve: gasolineras, cargadores o las dos cosas.</span>
+              <span className="muted b14">Así te enseñamos solo lo que te sirve. Si tienes más de uno, luego puedes añadirlos.</span>
             </div>
             <div className="grid-2">
               {CAR_TYPES.map((t, i) => (
-                <button key={t.id} type="button" className="opt tall" style={i === CAR_TYPES.length - 1 && CAR_TYPES.length % 2 === 1 ? { gridColumn: "1 / -1" } : undefined} onClick={() => pick(t)}>
-                  {t.label}
+                <button key={t.id} type="button" className="veh-type" style={i === CAR_TYPES.length - 1 && CAR_TYPES.length % 2 === 1 ? { gridColumn: "1 / -1" } : undefined} onClick={() => pick(t)}>
+                  <span className={`soft-icon ${TYPE_ICON[t.id].tone}`} aria-hidden="true">
+                    <Icon name={TYPE_ICON[t.id].icon} size={20} />
+                  </span>
+                  <span className="b15">{t.label}</span>
                 </button>
               ))}
             </div>
